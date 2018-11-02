@@ -16,13 +16,18 @@ int get_network_stream(void *opaque, uint8_t *buf, int buf_size)
 
     if (p_stream_manager)
     {
-        length = p_stream_manager->read_data(NULL, buf, buf_size);
-        if (length == buf_size)
+        while (1)
         {
-            return length;
-            printf("success");
+            length = p_stream_manager->read_data(NULL, buf, buf_size);
+            if (length == buf_size)
+            {
+                break;
+                printf("success");
+            }
         }
+
     }
+    return length;
 }
 
 IMPLEMENT_DYNAMIC(CVideoDlg, CDialogEx)
