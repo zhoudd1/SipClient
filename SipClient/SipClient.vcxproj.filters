@@ -131,9 +131,6 @@
     <ClInclude Include="..\DataRepository\include\MyNode.h">
       <Filter>Header Files\DataRepository</Filter>
     </ClInclude>
-    <ClInclude Include="RtpReceiver\PsPacketParser.h">
-      <Filter>Header Files\RtpReceiver</Filter>
-    </ClInclude>
     <ClInclude Include="..\video_decoder\Demuxer2.h">
       <Filter>Header Files\VideoDecoder</Filter>
     </ClInclude>

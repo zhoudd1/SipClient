@@ -30,6 +30,21 @@ int get_network_stream(void *opaque, uint8_t *buf, int buf_size)
     return length;
 }
 
+int callback_get_ps_stream(void *opaque, uint8_t *buf, int data_length)
+{
+    int write_data_length = 0;
+    int read_data_length = 0;
+    unsigned char buffer[100 * 1024] = { 0 };
+    write_data_length = CStreamManager::get_instance()->write_data(buf, data_length);
+    if (0 < write_data_length)
+    {
+        LOG("write data, data_length=%d\n", write_data_length);
+        //read_data_length = CStreamManager::get_instance()->read_data(NULL, buffer, write_data_length);
+        //write_media_data_to_file("E://callback_tmp1.ps", buffer, write_data_length);
+    }
+    return write_data_length;
+}
+
 IMPLEMENT_DYNAMIC(CVideoDlg, CDialogEx)
 
 CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
@@ -37,9 +52,14 @@ CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
 {
     m_pMediaSession = NULL;
     m_stream_buffer = (unsigned char*)malloc(STREAM_BUFFER_SIZE);
+
+    CRtpReceiver::setup_callback_function(callback_get_ps_stream, NULL, NULL, NULL);
+    m_p_rtp_receiver = new CRtpReceiver();
     
     CDemuxer::setup_callback_function(get_network_stream);
     m_pDemux = new CDemuxer();
+
+    m_pDemux2 = new CDemuxer2();
 }
 
 CVideoDlg::~CVideoDlg()
@@ -97,8 +117,10 @@ void CVideoDlg::PlayThreadProc(void* pParam)
 
 bool CVideoDlg::StartPlay()
 {
-    m_pMediaSession = new CMediaSession();
-    m_pMediaSession->StartProc();
+    //m_pMediaSession = new CMediaSession();
+    //m_pMediaSession->StartProc();
+    m_p_rtp_receiver->set_cleint_ip("192.168.2.102");
+    m_p_rtp_receiver->start_proc();
 
     m_playThreadHandle = (HANDLE)_beginthread(PlayThreadProc, 0, (void*)this);
     if (0 == m_playThreadHandle)
@@ -120,9 +142,9 @@ bool CVideoDlg::StopPlay()
 
 char* CVideoDlg::getSdpInfo()
 {
-    if (NULL != m_pMediaSession)
+    if (NULL != m_p_rtp_receiver)
     {
-        return m_pMediaSession->getSdpInfo();
+        return m_p_rtp_receiver->get_sdp_info();
     }
     else
     {
@@ -134,6 +156,10 @@ char* CVideoDlg::getSdpInfo()
 
 int CVideoDlg::Play()
 {
+    /**
+    *   use CDemux
+    */
+#if 0
     m_pDemux->set_output_es_video_file("E://dialog_mediaplay.h264");
 
     while (m_bplayThreadRuning)
@@ -145,4 +171,18 @@ int CVideoDlg::Play()
         }
     }
     return 0;
+#endif
+
+    /**
+    *   use CDemux2
+    */
+    unsigned char stream_buffer[100 * 1024];
+    int ps_packet_length = 0;
+#if 1
+    m_pDemux2->setup_dst_es_video_file("E://success_data//tmp1.h264");
+
+    //CStreamManager::get_instance()->get_a_ps_packet(stream_buffer, &ps_packet_length);
+    m_pDemux2->deal_ps_packet(stream_buffer, ps_packet_length);
+    return 0;
+#endif
 }

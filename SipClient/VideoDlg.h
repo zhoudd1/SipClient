@@ -3,6 +3,8 @@
 #include "MediaSession\MediaSession.h"
 #include "StreamManager\StreamManager.h"
 #include "video_decoder\Demuxer.h"
+#include "video_decoder\Demuxer2.h"
+#include "RtpReceiver\RtpReceiver.h"
 
 #define STREAM_BUFFER_SIZE (8 * 1024 * 1024)
 
@@ -29,7 +31,10 @@ private:
     unsigned char* m_ScrBuf[4] = { 0 };     //video buffer
 
     CMediaSession* m_pMediaSession;
+    CRtpReceiver* m_p_rtp_receiver;
+
     CDemuxer* m_pDemux;
+    CDemuxer2* m_pDemux2;
     unsigned char* m_stream_buffer;
 
 public:

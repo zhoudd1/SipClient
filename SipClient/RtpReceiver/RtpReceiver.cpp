@@ -1,49 +1,35 @@
 #include "RtpReceiver.h"
-#include "DataRepository\include\DataRepository.h"
+#include <process.h>
 
-extern char g_ClientIp[20]; //sip UA IP
-extern char g_ClientId[20]; //sip UA Id
-
-//存放PS包的数据仓库，每一数据项存储一帧完整的PS包
-extern CDataRepository<unsigned char*> g_PsPacketRepo;
-
-//存放ES包的数据仓库，每一数据项存储一帧完整的ES包
-extern CDataRepository<unsigned char*> g_EsPacketRepo;
+callback_get_ps_stream_fp CRtpReceiver::m_callback_get_ps_stream = NULL;
+callback_get_h264_stream_fp CRtpReceiver::m_callback_get_h264_stream = NULL;
+callback_get_mpeg4_stream_fp CRtpReceiver::m_callback_get_mpeg4_stream = NULL;
+callback_get_svac_stream_fp CRtpReceiver::m_callback_get_svac_stream = NULL;
 
 CRtpReceiver::CRtpReceiver(unsigned short rtpPort)
-    :m_mediaPort(rtpPort)
+    :m_media_port(rtpPort)
 {
-    m_offset = 0;
-    m_stream_buffer = (uint8_t*)malloc(MAX_FRAME_SIZE);
+
 }
 
 CRtpReceiver::~CRtpReceiver()
 {
-    if (m_stream_buffer)
-    {
-        free(m_stream_buffer);
-    }
 }
 
-char* CRtpReceiver::getFrame()
+char* CRtpReceiver::get_sdp_info()
 {
-    return nullptr;
+    return m_sdp_info;
 }
 
-char* CRtpReceiver::getSdpInfo()
-{
-    return m_SdpInfo;
-}
-
-int CRtpReceiver::generateSdpInfo()
+int CRtpReceiver::generate_sdp_info()
 {
     char pMediaPort[10] = { 0 };
-    _itoa_s(m_mediaPort, pMediaPort, 10);
+    _itoa_s(m_media_port, pMediaPort, 10);
 
     char pSsrc[50] = { 0 };
     sprintf_s(pSsrc, "%s", "999999");
 
-    sprintf_s(m_SdpInfo, 4 * 1024,
+    sprintf_s(m_sdp_info, 4 * 1024,
         "v=0\r\n"
         "o=%s 0 0 IN IP4 %s\r\n"
         "s=Play\r\n"
@@ -56,86 +42,92 @@ int CRtpReceiver::generateSdpInfo()
         "a=rtpmap:97 MPEG-4/90000\r\n"
         "y=%s\r\n"
         "f=\r\n",
-        g_ClientId,
-        g_ClientIp,
-        g_ClientIp,
+        m_client_id,
+        m_client_ip,
+        m_client_ip,
         pMediaPort,
         pSsrc);
 
     return 0;
 }
 
-uint16_t CRtpReceiver::getMediaPort()
+uint16_t CRtpReceiver::get_media_port()
 {
-    return m_mediaPort;
+    return m_media_port;
 }
 
-int CRtpReceiver::StartProc()
+int CRtpReceiver::start_proc()
 {
-    m_threadHandle = (HANDLE)_beginthread(ThreadProc, 0, (void*)this);
-    if (0 == m_threadHandle)
+    m_thread_handle = (HANDLE)_beginthread(thread_proc, 0, (void*)this);
+    if (0 == m_thread_handle)
     {
         //线程启动失败
         return -1;
     }
-    m_bThreadRuning = true;
+    m_b_thread_runing = true;
 
     //生成sdp信息
-    generateSdpInfo();
+    generate_sdp_info();
 
     return 0;
 }
 
-void CRtpReceiver::StopProc()
+void CRtpReceiver::stop_proc()
 {
-    m_bThreadRuning = false;
-
-    m_RtpSession.BYEDestroy(RTPTime(10, 0), 0, 0);
+    m_b_thread_runing = false;
 }
 
-void CRtpReceiver::ThreadProc(void* pParam)
+void CRtpReceiver::thread_proc(void* pParam)
 {
     CRtpReceiver* pThis = (CRtpReceiver*)pParam;
 
     RTPUDPv4TransmissionParams Transparams;
     RTPSessionParams Sessparams;
+    RTPSession rtp_session;
 
     Sessparams.SetOwnTimestampUnit(1.0 / 8000.0);
     Sessparams.SetAcceptOwnPackets(true);
 
-    Transparams.SetPortbase(pThis->m_mediaPort);
+    Transparams.SetPortbase(pThis->m_media_port);
 
     int status, i, num;
 
-    status = (pThis->m_RtpSession).Create(Sessparams, &Transparams);
-
-    while (pThis->m_bThreadRuning)
+    status = rtp_session.Create(Sessparams, &Transparams);
+    if (0 != status)
     {
-        (pThis->m_RtpSession).BeginDataAccess();
+        printf("create rtp session failure. check if you init windows network content.\n");
+        exit(0);
+    }
+
+    while (pThis->m_b_thread_runing)
+    {
+        rtp_session.BeginDataAccess();
 
         // check incoming packets
-        if ((pThis->m_RtpSession).GotoFirstSourceWithData())
+        if (rtp_session.GotoFirstSourceWithData())
         {
             do
             {
                 RTPPacket *pack;
 
-                while ((pack = (pThis->m_RtpSession).GetNextPacket()) != NULL)
+                while ((pack = rtp_session.GetNextPacket()) != NULL)
                 {
                     //pThis->assemleFrame(pack);
-                    pThis->handlePacket(pack);
+                    pThis->handle_packet(pack);
                     // we don't longer need the packet, so
                     // we'll delete it
-                    (pThis->m_RtpSession).DeletePacket(pack);
+                    rtp_session.DeletePacket(pack);
                 }
-            } while ((pThis->m_RtpSession).GotoNextSourceWithData());
+            } while (rtp_session.GotoNextSourceWithData());
         }
-        (pThis->m_RtpSession).EndDataAccess();
+        rtp_session.EndDataAccess();
         RTPTime::Wait(RTPTime(1, 0));
     }
+
+    rtp_session.BYEDestroy(RTPTime(10, 0), 0, 0);
 }
 
-int CRtpReceiver::handlePacket(RTPPacket* packet)
+int CRtpReceiver::handle_packet(RTPPacket* packet)
 {
     int packetSize = 0;
     uint8_t packetPayloadType;
@@ -153,8 +145,7 @@ int CRtpReceiver::handlePacket(RTPPacket* packet)
     {
     case PS: //96
     {
-        handlePsPacket( packet );
-        handlePsPacketAsStream(packet);
+        handle_ps_packet( packet );
         break;
     }
     case MPEG4: //97
@@ -163,6 +154,7 @@ int CRtpReceiver::handlePacket(RTPPacket* packet)
     }
     case H264: //98
     {
+        handle_h264_packet(packet);
         break;
     }
     case SVAC: //99
@@ -176,91 +168,104 @@ int CRtpReceiver::handlePacket(RTPPacket* packet)
     }
 }
 
-
-int CRtpReceiver::handlePsPacket(RTPPacket* packet)
+int CRtpReceiver::handle_ps_packet(RTPPacket* packet)
 {
-    
-
-    if (NULL == packet)
+    if (packet && m_callback_get_ps_stream)
     {
-        return 0;
-    }
-
-    if (packet->HasMarker())   //完数据包, asMarker() Returns true is the marker bit was set
-    {
-        //接收到完整的一帧，存入视频帧队列，供解码器解析，并将空间释放，供下一帧数据存放。
-        memcpy(m_pFrame + m_offset, packet->GetPayloadData(), packet->GetPayloadLength());
-        m_frameSize = m_offset + packet->GetPayloadLength();
-        m_pTmpFrame = new uint8_t(m_frameSize);
-
-        g_PsPacketRepo.putData(m_pTmpFrame);    //入PS包仓库
-        //memcpy(m_pTmpFrame, m_pFrame, m_frameSize);
-
-        write_media_data_to_file("E://buf_mediaplay.ps", m_pFrame, m_frameSize);
-        //write_media_data_to_file("E://src_mediaplay.ps", packet->GetPayloadData(), packet->GetPayloadLength());
-
-        //deal_ps_packet(m_pFrame, m_frameSize);
-        m_ps_demuxer.setup_dst_es_video_file("E://buf_mediaplay.h264");
-        m_ps_demuxer.deal_ps_packet(m_pFrame, m_frameSize);
-
-        m_frameSize = 0;
-        m_offset = 0;
+        write_media_data_to_file("E://rtpreciver_tmp1.ps", packet->GetPayloadData(), packet->GetPayloadLength());
+        m_callback_get_ps_stream(NULL, packet->GetPayloadData(), packet->GetPayloadLength());
+        return packet->GetPayloadLength();
     }
     else
     {
-        memcpy(m_pFrame + m_offset, packet->GetPayloadData(), packet->GetPayloadLength());
-        m_offset += packet->GetPayloadLength();
-        //write_media_data_to_file("E://src_mediaplay.ps", packet->GetPayloadData(), packet->GetPayloadLength());
+        return 0;
     }
-    return packet->GetPayloadLength();
 }
 
-int CRtpReceiver::handlePsPacketAsStream(RTPPacket* packet)
+int CRtpReceiver::handle_mpeg4_packet(RTPPacket* packet)
 {
-    if (NULL == packet)
+    return 0;
+}
+
+int CRtpReceiver::handle_h264_packet(RTPPacket* packet)
+{
+    if (packet && m_callback_get_h264_stream)
+    {
+        //write_media_data_to_file("E://rtpreciver_tmp1.ps", packet->GetPayloadData(), packet->GetPayloadLength());
+        m_callback_get_h264_stream(NULL, packet->GetPayloadData(), packet->GetPayloadLength());
+        return packet->GetPayloadLength();
+    }
+    else
     {
         return 0;
     }
-    int pakcet_length = packet->GetPayloadLength();
-
-    memset(m_stream_buffer, 0x00, MAX_FRAME_SIZE);
-
-    CStreamManager* p_stream_manager = CStreamManager::get_instance();
-
-
-    if (p_stream_manager->write_data(packet->GetPayloadData(), pakcet_length) > 0)
-    {
-        //p_stream_manager->read_data(NULL, m_stream_buffer, pakcet_length);
-        //write_media_data_to_file("E://buf_mediaplay_stream.ps", m_stream_buffer, pakcet_length);
-    }
-
-    memset(m_stream_buffer, 0x00, MAX_FRAME_SIZE);
-}
-
-int CRtpReceiver::handleMPEG4Packet(RTPPacket* packet)
-{
-    return 0;
-}
-
-int CRtpReceiver::handleH264Packet(RTPPacket* packet)
-{
-    return 0;
 }
 
 void CRtpReceiver::write_media_data_to_file(char* file_name, void* pLog, int nLen)
 {
+    FILE* pLogFile = NULL;
     if (pLog != NULL && nLen > 0)
     {
-        if (NULL == m_pLogFile && strlen(file_name) > 0)
+        if (NULL == pLogFile && strlen(file_name) > 0)
         {
-            ::fopen_s(&m_pLogFile, file_name, "ab+");
+            ::fopen_s(&pLogFile, file_name, "ab+");
         }
 
-        if (m_pLogFile != NULL)
+        if (pLogFile != NULL)
         {
-            ::fwrite(pLog, nLen, 1, m_pLogFile);
-            ::fclose(m_pLogFile);
-            m_pLogFile = NULL;
+            ::fwrite(pLog, nLen, 1, pLogFile);
+            ::fclose(pLogFile);
+            pLogFile = NULL;
         }
     }
+}
+
+bool CRtpReceiver::set_cleint_ip(char* ip)
+{
+    if (strlen(ip) < 7)
+    {
+        return false;
+    }
+    else
+    {
+        sprintf(m_client_ip, "%s", ip);
+        return true;
+    }
+}
+
+bool CRtpReceiver::set_media_port(unsigned short port)
+{
+    if (0 > port)
+    {
+        return false;
+    }
+    else
+    {
+        m_media_port = port;
+    }
+}
+
+bool CRtpReceiver::set_client_id(char* id)
+{
+    if (strlen(id) != 20)
+    {
+        return false;
+    }
+    else
+    {
+        sprintf(m_client_id, "%s", id);
+        return true;
+    }
+}
+
+void CRtpReceiver::setup_callback_function(
+    callback_get_ps_stream_fp get_ps_stream,
+    callback_get_h264_stream_fp get_h264_stream,
+    callback_get_mpeg4_stream_fp get_mpeg4_stream,
+    callback_get_svac_stream_fp get_svac_stream)
+{
+    m_callback_get_ps_stream = get_ps_stream;
+    m_callback_get_h264_stream = get_h264_stream;
+    m_callback_get_mpeg4_stream = get_mpeg4_stream;
+    m_callback_get_svac_stream = get_svac_stream;
 }

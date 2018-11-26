@@ -131,7 +131,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)jrtplib\include;$(SolutionDir)jthread;$(SolutionDir)SipStack\include;$(SolutionDir)SipStack;$(SolutionDir);$(SolutionDir)ffmpeg_4_0_win32\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -348,7 +348,6 @@
     <ClInclude Include="..\video_decoder\Demuxer2.h" />
     <ClInclude Include="MediaSession\MediaSession.h" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="RtpReceiver\PsPacketParser.h" />
     <ClInclude Include="RtpReceiver\RtpReceiver.h" />
     <ClInclude Include="SipClient.h" />
     <ClInclude Include="SipClientCtrl.h" />
