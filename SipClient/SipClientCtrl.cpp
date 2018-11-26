@@ -5,6 +5,10 @@
 #include "SipClientCtrl.h"
 #include "SipClientPropPage.h"
 #include "afxdialogex.h"
+#include "utils/logger.h"
+
+using namespace bsm;
+using namespace bsm_video_decoder;
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -177,6 +181,13 @@ LONG CSipClientCtrl::MediaInit(LPCTSTR clientId, LPCTSTR clientIp, USHORT client
     if (NULL == m_pVideoDlg)
     {
         //
+    }
+
+    //init logger.
+    bsm_logger::set_log_type(log_type_file);
+    if (!bsm_logger::get_instance()->init_logger("E://gb28181_client.log"))
+    {
+        return -1;
     }
 
     if (NULL == m_pSipUA)

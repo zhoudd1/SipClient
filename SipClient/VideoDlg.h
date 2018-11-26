@@ -1,7 +1,7 @@
 #pragma once
 
 #include "MediaSession\MediaSession.h"
-#include "StreamManager\StreamManager.h"
+//#include "StreamManager\StreamManager.h"
 #include "video_decoder\Demuxer.h"
 #include "video_decoder\Demuxer2.h"
 #include "RtpReceiver\RtpReceiver.h"
@@ -9,6 +9,8 @@
 #define STREAM_BUFFER_SIZE (8 * 1024 * 1024)
 
 // CVideoDlg dialog
+using namespace bsm;
+using namespace bsm_video_decoder;
 
 class CVideoDlg : public CDialogEx
 {
@@ -33,8 +35,8 @@ private:
     CMediaSession* m_pMediaSession;
     CRtpReceiver* m_p_rtp_receiver;
 
-    CDemuxer* m_pDemux;
-    CDemuxer2* m_pDemux2;
+    bsm_demuxer* m_pDemux;
+    bsm_demuxer2* m_pDemux2;
     unsigned char* m_stream_buffer;
 
 public:

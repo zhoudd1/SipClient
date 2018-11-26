@@ -1,73 +1,57 @@
+/*****************************************************************************
+bsm - bstorm distributed streaming analysing system
+Copyright (c) 2018 boostiv , Inc.
+File discription:This file can only be used under the boostiv authorilization.
+Author:	    yangdong
+Datetime:   2018/11/13
+*****************************************************************************/
+
 #ifndef __DEMUXER_H__
 #define __DEMUXER_H__
 
-#include "stdio.h"
+namespace bsm{
+namespace bsm_video_decoder{
 
-#define __STDC_CONSTANT_MACROS
+#define MAX_FILE_NAME_LENGTH___BSM_DEMUXER 60
+#define RTP_V4_RECEIVE_BUFFER	32768
 
-#ifdef _WIN32
-//Windows
-extern "C"
-{
-#include "libswscale/swscale.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavcodec/avcodec.h"
-#include "libavformat/avformat.h"
-#include <libavformat/avio.h>
-#include <libavutil/file.h>
-#include <libavutil/mathematics.h>
-};
-#else
-//Linux...
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-#include <libswscale/swscale.h>
-#include <libavutil/opt.h>
-#include <libavutil/imgutils.h>
-#ifdef __cplusplus
-};
-#endif
-#endif
-
-#define LOG(fmt, ...) fprintf(stdout, "[DEBUG] %s:\n%s:%d: " fmt "\n", __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-
-#define MAX_FILE_NAME_LENGTH 60
-
-//回调函数，使用ffmpeg解复用网络PS流时，ffmpeg需要通过该函数获取网络流。
-typedef int(*callback_get_network_stream_fp)(void *opaque, uint8_t *buf, int buf_size);
+typedef int(*callback_pull_ps_stream_demuxer)(void *opaque, unsigned char *buf, int buf_size);         //input ps stream
+typedef int(*callback_push_es_video_stream_demuxer)(void *opaque, unsigned char *buf, int buf_size);   //output video es stream
+typedef int(*callback_push_es_audio_stream_demuxer)(void *opaque, unsigned char *buf, int buf_size);   //output audio es stream
 
 /**
 *   demux ps stream to es stream, using ffmpeg.
 */
 
-class CDemuxer
+class bsm_demuxer
 {
 public:
-    CDemuxer() {}
-    ~CDemuxer() {}
+    bsm_demuxer() {}
+    ~bsm_demuxer() {}
 
-    void set_input_ps_file(char* file_name);
     void set_output_es_video_file(char* file_name);
     void set_output_es_audio_file(char* file_name);
 
-    /**
-    *   
-    */
-    bool demux_ps_to_es();
-
+    bool demux_ps_to_es_file(char* ps_file_name);
     bool demux_ps_to_es_network();
 
-    static void setup_callback_function(callback_get_network_stream_fp func);
-    static callback_get_network_stream_fp callback_get_network_stream;
+    bool demux_ps_file_to_es_stream(char* ps_file_name);
+
+public:
+    static void setup_callback_function(callback_pull_ps_stream_demuxer pull_ps_stream,
+        callback_push_es_video_stream_demuxer push_es_video_stream,
+        callback_push_es_audio_stream_demuxer push_es_audio_stream);
+
+    static callback_pull_ps_stream_demuxer m_callback_pull_ps_stream;
+    static callback_push_es_video_stream_demuxer m_callback_push_es_video_stream;
+    static callback_push_es_audio_stream_demuxer m_callback_push_es_audio_stream;
 
 private:
-    char m_input_ps_file_name[MAX_FILE_NAME_LENGTH];
-    char m_output_es_video_file_name[MAX_FILE_NAME_LENGTH];
-    char m_output_es_audio_file_name[MAX_FILE_NAME_LENGTH];
+    char m_output_es_video_file_name[MAX_FILE_NAME_LENGTH___BSM_DEMUXER];
+    char m_output_es_audio_file_name[MAX_FILE_NAME_LENGTH___BSM_DEMUXER];
 };
 
+} // namespace bsm_video_decoder
+} // namespace bsm
 #endif // !__DEMUXER_H__
 

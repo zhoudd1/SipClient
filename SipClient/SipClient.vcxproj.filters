@@ -52,6 +52,12 @@
     <Filter Include="Source Files\StreamManager">
       <UniqueIdentifier>{5bf25672-f7b3-4c78-a697-e9399cf069dd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\utils">
+      <UniqueIdentifier>{43d93a03-1b7c-4259-85d6-ec836d638be8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\utils">
+      <UniqueIdentifier>{0004dd95-b785-4b61-b51f-cd8eb9697ce4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -89,6 +95,12 @@
     </ClCompile>
     <ClCompile Include="..\video_decoder\Demuxer.cpp">
       <Filter>Source Files\VideoDecoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\utils\logger.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\utils\bsm_lock.cpp">
+      <Filter>Source Files\utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -139,6 +151,12 @@
     </ClInclude>
     <ClInclude Include="..\video_decoder\Demuxer.h">
       <Filter>Header Files\VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\utils\bsm_lock.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\utils\logger.h">
+      <Filter>Header Files\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

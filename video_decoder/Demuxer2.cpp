@@ -1,43 +1,87 @@
-#include "Demuxer2.h"
 #include <fstream>
+#include <string.h>
+#include <stdlib.h>
 
-int CDemuxer2::find_next_hx_str(unsigned char* source, int source_length, unsigned char* seed, int seed_length)
+#include "Demuxer2.h"
+#include "utils/logger.h"
+
+#ifndef WIN32
+
+#endif
+
+namespace bsm {
+namespace bsm_video_decoder {
+
+callback_pull_ps_stream_demuxer2 bsm_demuxer2::m_callback_pull_ps_stream = NULL;
+callback_push_es_video_stream_demuxer2 bsm_demuxer2::m_callback_push_es_video_stream = NULL;
+callback_push_es_audio_stream_demuxer2 bsm_demuxer2::m_callback_push_es_audio_stream = NULL;
+
+bool bsm_demuxer2::find_next_hx_str(unsigned char* source, int source_length, unsigned char* seed, int seed_length, int* position)
 {
-    if (source && seed)
+    if (!source || !seed)
     {
-    }
-    else
-    {
-        //failure
-        return 0;
+        return false;
     }
 
-    unsigned char* pHeader = source + seed_length;
-
+    unsigned char* pHeader = source;
     int total_length = source_length;
     int processed_length = 0;
 
-    int src_offset = 0;
     while (total_length - processed_length >= seed_length)
     {
         for (int i = 0; i < seed_length && (pHeader[i] == seed[i]); i++)
         {
             if (seed_length - 1 == i)
             {
-                //find ok
-                return seed_length + processed_length;
+                *position = processed_length;
+                return true;
             }
         }
 
         processed_length++;
-        pHeader = source + seed_length + processed_length;
+        pHeader = source + processed_length;
     }
 
-    return 0;
+    return false;
+}
+
+bool bsm_demuxer2::find_next_ps_packet(unsigned char* source, int source_length, int* ps_packet_start_point, int* ps_packet_length)
+{
+    if (!source)
+    {
+        return false;
+    }
+
+    int _ps_packet_start_point = 0;
+    int _ps_packet_end_point = 0;
+
+    unsigned char ps_packet_start_code[4];
+    ps_packet_start_code[0] = 0x00;
+    ps_packet_start_code[1] = 0x00;
+    ps_packet_start_code[2] = 0x01;
+    ps_packet_start_code[3] = 0xba;
+
+    if (find_next_hx_str(source, source_length, ps_packet_start_code, 4, &_ps_packet_start_point))
+    {
+        if (find_next_hx_str(source + 4, source_length - 4, ps_packet_start_code, 4, &_ps_packet_end_point))
+        {
+            *ps_packet_start_point = _ps_packet_start_point;
+            *ps_packet_length = (_ps_packet_end_point - _ps_packet_start_point)+4;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    else
+    {
+        return false;
+    }
 }
 
 
-int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
+int bsm_demuxer2::deal_ps_packet(unsigned char * packet, int length)
 {
     int ps_packet_header_stuffed_size;
     int pes_system_header_header_length;
@@ -64,12 +108,9 @@ int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
         && packet[2] == 0x01
         && packet[3] == 0xba)
     {
-        //ps_head = (ps_packet_header_t*)packet;
-        //从ps包头第14个字节的最后3位获取头部填充数据的长度
+        //we can get padding data length , from the last 3 bit in fourteenth(14) byte in header.
         ps_packet_header_stuffed_size = packet[13] & 0x07;
 
-        //+14的原因是表示填充数据的长度位是PS包头部的第14个字节的后3位说明。
-        //不使用sizeof计算PS包头部长度的原因是结构体内部会发生自动对齐，导致该结果不准确。
         packet_processed_length += 14 + ps_packet_header_stuffed_size;
 
         next_pes_packet = packet + packet_processed_length;
@@ -91,7 +132,7 @@ int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
 
                 pes_system_header_header_length = tmp_size.length;
 
-                // +6的原因是pes_packet_header_t中长度字节之前还有6个字节
+                // the reason of +6, is there 6 byte data before padding data in header.
                 packet_processed_length += (6 + pes_system_header_header_length);
 
                 next_pes_packet = packet + packet_processed_length;
@@ -111,7 +152,7 @@ int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
 
                 pes_program_stream_map_length = tmp_size.length;
 
-                // +6的原因是pes_packet_header_t中自动填充数据之前有6个字节
+                // the reason of +6, is there 6 byte data before padding data in header.
                 packet_processed_length += 6 + pes_program_stream_map_length;
 
                 next_pes_packet = packet + packet_processed_length;
@@ -133,13 +174,22 @@ int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
                 pes_video_h264_packet_size = tmp_size.length;
                 pes_video_h264_packet_stuffed_size = pes_video_h264_packet_header->PES_header_data_length;
 
-                // +9 的原因是pes_video_h264_packet_stuffed_size之前还有9个字节的头部数据
-                // +6 的原因是pes包的总长度是在头部之后第6个字节处得到的。
-                write_media_data_to_file(m_dst_es_video_filename,
-                    next_pes_packet + 9 + pes_video_h264_packet_stuffed_size,
-                    pes_video_h264_packet_size + 6 - 9 - pes_video_h264_packet_stuffed_size);
-
                 packet_processed_length += 6 + pes_video_h264_packet_size;
+                if (packet_total_length < packet_processed_length)
+                {
+                    LOG("error: packet_total_length < packet_processed_length.\n");
+                    break;
+                }
+
+                // the reason of +9 is , before pes_video_h264_packet_stuffed_size filed, there are 9 bit in header.
+                // the reason of +6 is , all pes packet length is get from the sixth bit in header.
+                if (m_callback_push_es_video_stream)
+                {
+                    m_callback_push_es_video_stream(NULL, 
+                        next_pes_packet + 9 + pes_video_h264_packet_stuffed_size,
+                        pes_video_h264_packet_size + 6 - 9 - pes_video_h264_packet_stuffed_size);
+                }
+
                 next_pes_packet = packet + packet_processed_length;
             }
 
@@ -159,7 +209,7 @@ int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
             }
             if (packet_total_length - packet_processed_length < 0)
             {
-                LOG("error, please check if src ps file formate is right\n");
+                LOG("error, please check if src ps packet formate is right\n");
                 return packet_total_length;
             }
         }
@@ -173,37 +223,36 @@ int CDemuxer2::deal_ps_packet(unsigned char * packet, int length)
     return packet_processed_length;
 }
 
-void CDemuxer2::write_media_data_to_file(char* file_name, void* pLog, int nLen)
+void bsm_demuxer2::write_media_data_to_file(char* file_name, void* pLog, int nLen)
 {
-    FILE* m_pLogFile = NULL;
+    FILE* pf_media_file = NULL;
     if (pLog != NULL && nLen > 0)
     {
-        if (NULL == m_pLogFile && strlen(file_name) > 0)
+        if (NULL == pf_media_file && strlen(file_name) > 0)
         {
-            //一定要以二进制方式打开文件，不然在Windows平台输出文件时会将“换行”转换成“回车+换行”，导致文件出错
-            ::fopen_s(&m_pLogFile, file_name, "ab+");
+            // must open file as binary model, otherwise, on windows it will replease '\n' to '\r\n'.
+            pf_media_file = fopen(file_name, "ab+");
         }
 
-        if (m_pLogFile != NULL)
+        if (pf_media_file != NULL)
         {
-            ::fwrite(pLog, nLen, 1, m_pLogFile);
-            ::fflush(m_pLogFile);
-            ::fclose(m_pLogFile);
-            m_pLogFile = NULL;
+            fwrite(pLog, nLen, 1, pf_media_file);
+            fflush(pf_media_file);
+            fclose(pf_media_file);
+            pf_media_file = NULL;
         }
     }
 }
 
-int CDemuxer2::do_demux()
+int bsm_demuxer2::demux_ps_to_es_file(char* ps_file_name)
 {
-    int buffer_capacity = MAX_BUFFER_SIZE;      //buffer 总容量
-    int buffer_size = 0;                        //buffer 中当前数据大小
-    int processed_size = 0;                     //已经解析完的缓存数据大小
-    int buffer_left_size = MAX_BUFFER_SIZE;     //缓存区剩余大小
-    int read_size = 0;
-    int next_ps_packet_offset = 0;              //缓存中下一个ps包的位移
+    int buffer_capacity = MAX_BUFFER_SIZE;      //buffer total size
+    int buffer_size = 0;                        //buffer current size
+    int buffer_left_size = MAX_BUFFER_SIZE;     
+    int processed_size = 0;                     
 
-    int ps_packet_length = 0;                   //ps包长度
+    int _ps_packet_start_position = 0;
+    int _ps_packet_length = 0;
 
     bool is_end_of_file = false;
 
@@ -222,63 +271,100 @@ int CDemuxer2::do_demux()
     ps_packet_start_code[2] = 0x01;
     ps_packet_start_code[3] = 0xba;
 
-    //buffer_left_size = MAX_BUFFER_SIZE;
+    //errno_t err;
+    FILE* pf_ps_file;
+
+    pf_ps_file = fopen(ps_file_name, "rb");
+    if (pf_ps_file)
+    {
+        printf("The file '%s' was opened\n", ps_file_name);
+    }
+    else
+    {
+        printf("failure, when open The file '%s'.\n", ps_file_name);
+        return -1;
+    }
 
     do {
-        ps_packet_length = find_next_hx_str(stream_data_buf + next_ps_packet_offset,
-            MAX_BUFFER_SIZE - next_ps_packet_offset,
-            ps_packet_start_code, 4);
-
-        if (0 != ps_packet_length)
+        if (find_next_ps_packet(stream_data_buf + processed_size, buffer_capacity - processed_size,
+            &_ps_packet_start_position, &_ps_packet_length))
         {
-            //查找PS包成功, 开始处理
-            processed_size += deal_ps_packet(stream_data_buf + next_ps_packet_offset, ps_packet_length);
+            if (_ps_packet_length != deal_ps_packet(stream_data_buf + _ps_packet_start_position + processed_size, _ps_packet_length))
+            {
+                LOG("please check if ps packe is right.\n");
+            }
 
-            next_ps_packet_offset += ps_packet_length;
-            //buffer_left_size = processed_size;
+            processed_size += _ps_packet_length;
+            buffer_size = buffer_capacity - processed_size;
         }
         else
         {
-            //查找失败
-            if (0 == processed_size && (buffer_size == buffer_capacity))
+            if (is_end_of_file)
             {
-                //缓冲区太小
-                LOG("buffer is too small.\n");
-                return -1;
+                //deal last PS packet in buffer.
+                deal_ps_packet(stream_data_buf + processed_size, buffer_capacity - processed_size);
+                break;
             }
-            else 
+            
+            if (buffer_size < buffer_capacity)
             {
-                //缓冲区足够，缓冲区中剩余的数据不足一整个PS packet， 需要重新读取文件
-                if (is_end_of_file)
-                {
-                    //处理最后缓存中的数据, 如果不做处理则丢失最后一个PS包数据
-                    deal_ps_packet(stream_data_buf + processed_size, MAX_BUFFER_SIZE - processed_size);
-                    break;
+                if(0 < processed_size)
+                { 
+                    memset(tmp_data_buf, 0x00, buffer_capacity);
+                    memcpy(tmp_data_buf, stream_data_buf + processed_size, buffer_capacity - processed_size);
+
+                    memset(stream_data_buf, 0x00, buffer_capacity);
+                    memcpy(stream_data_buf, tmp_data_buf, buffer_capacity - processed_size);
+
+                    buffer_left_size = processed_size;
+                    processed_size = 0;
                 }
 
-                //查找失败，但文件未读完，则继续读文件
-                //第一步：将缓存中剩余数据移动到缓存最前端；
-                memset(tmp_data_buf, 0x00, MAX_BUFFER_SIZE);
-                memcpy(tmp_data_buf, stream_data_buf + processed_size, MAX_BUFFER_SIZE - processed_size);
-
-                memset(stream_data_buf, 0x00, MAX_BUFFER_SIZE);
-                memcpy(stream_data_buf, tmp_data_buf, MAX_BUFFER_SIZE - processed_size);
-
-                next_ps_packet_offset = 0;
-                buffer_left_size += processed_size;
-                processed_size = 0;
-
-                //第二步：读取文件数据将缓存区填满。
-                read_size = ::fread_s(stream_data_buf + (MAX_BUFFER_SIZE - buffer_left_size), buffer_left_size, 1, buffer_left_size, m_pf_ps_file);
-                buffer_size = read_size;
-
-                buffer_left_size -= read_size;
-                if (buffer_left_size > 0)
+                //read data from file to fill buffer.
+                if(buffer_left_size > fread(stream_data_buf + (buffer_capacity - buffer_left_size), 1, buffer_left_size, pf_ps_file))
                 {
                     LOG("end of file.\n");
                     is_end_of_file = true;
-                    continue;
                 }
+                else
+                {
+                    buffer_size = buffer_capacity;
+                }
+                continue;
+            }
+            else if (buffer_size == buffer_capacity)
+            {
+                if (0 < _ps_packet_start_position)
+                {
+                    LOG("have find first PS packet.");
+                    if (0 < processed_size)
+                    {
+                        LOG("error : 0 < processed_size && 0 < _ps_packet_start_position");
+                    }
+                    memset(tmp_data_buf, 0x00, buffer_capacity);
+                    memcpy(tmp_data_buf, stream_data_buf + _ps_packet_start_position, buffer_capacity - _ps_packet_start_position);
+
+                    memset(stream_data_buf, 0x00, buffer_capacity);
+                    memcpy(stream_data_buf, tmp_data_buf, buffer_capacity - _ps_packet_start_position);
+
+                    buffer_size = buffer_capacity - _ps_packet_start_position;
+                    buffer_left_size = _ps_packet_start_position;
+                    processed_size = 0;
+                }
+                else
+                { 
+                    LOG("buffer is too small.\n");
+
+                    memset(tmp_data_buf, 0x00, buffer_capacity);
+                    memset(stream_data_buf, 0x00, buffer_capacity);
+                    buffer_size = 0;
+                    buffer_left_size = buffer_capacity;
+                    processed_size = 0;
+                }
+            }
+            else
+            {
+                LOG("error : buffer_size > buffer_capacity");
             }
         }
     } while (true);
@@ -294,66 +380,141 @@ int CDemuxer2::do_demux()
         free(tmp_data_buf);
     }
 
-    return 0;
-}
-
-void CDemuxer2::setup_src_ps_file(char* filename)
-{
-    memset(m_src_ps_filename, 0x00, MAX_FILENAME_LENGTH);
-    if (strlen(filename) > 0)
+    if (pf_ps_file)
     {
-        sprintf_s(m_src_ps_filename, MAX_FILENAME_LENGTH, "%s", filename);
-    }
-}
-
-void CDemuxer2::setup_dst_es_video_file(char* filename)
-{
-    memset(m_dst_es_video_filename, 0x00, MAX_FILENAME_LENGTH);
-    if (strlen(filename) > 0)
-    {
-        sprintf_s(m_dst_es_video_filename, MAX_FILENAME_LENGTH, "%s", filename);
-    }
-}
-
-void CDemuxer2::setup_dst_es_audio_file(char* filename)
-{
-    memset(m_dst_es_audio_filename, 0x00, MAX_FILENAME_LENGTH);
-    if (strlen(filename) > 0)
-    {
-        sprintf_s(m_dst_es_audio_filename, MAX_FILENAME_LENGTH, "%s", filename);
-    }
-}
-
-bool CDemuxer2::open_src_ps_file()
-{
-    //open ps file
-    errno_t err;
-    err = ::fopen_s(&m_pf_ps_file, m_src_ps_filename, "rb");
-    if (err == 0)
-    {
-        printf("The file '%s' was opened\n", m_src_ps_filename);
-    }
-    else
-    {
-        printf("The file '%s' was not opened\n", m_src_ps_filename);
-    }
-    return (0 == err);
-}
-bool CDemuxer2::close_src_ps_file()
-{
-    // close ps file 
-    errno_t err = 0;
-    if (m_pf_ps_file)
-    {
-        err = fclose(m_pf_ps_file);
-        if (err == 0)
+        if (0 == fclose(pf_ps_file))
         {
-            printf("The file '%s' was closed\n", m_src_ps_filename);
+            printf("The file '%s' was closed\n", ps_file_name);
         }
         else
         {
-            printf("The file '%s' was not closed\n", m_src_ps_filename);
+            printf("The file '%s' was not closed\n", ps_file_name);
         }
     }
-    return (0 == err);
+
+    return 0;
 }
+
+int bsm_demuxer2::demux_ps_to_es_network()
+{
+    int buffer_capacity = MAX_BUFFER_SIZE;      
+    int buffer_size = 0;                        
+    int processed_size = 0;                     
+    int buffer_left_size = MAX_BUFFER_SIZE;     
+
+    int _ps_packet_start_position = 0;
+    int _ps_packet_length = 0;
+
+    int real_process_ps_packet_size;
+
+    unsigned char* stream_data_buf = NULL;
+    unsigned char* tmp_data_buf = NULL;
+
+    stream_data_buf = (unsigned char*)malloc(MAX_BUFFER_SIZE);
+    memset(stream_data_buf, 0x00, MAX_BUFFER_SIZE);
+
+    tmp_data_buf = (unsigned char*)malloc(MAX_BUFFER_SIZE);
+    memset(tmp_data_buf, 0x00, MAX_BUFFER_SIZE);
+
+    unsigned char ps_packet_start_code[4];
+    ps_packet_start_code[0] = 0x00;
+    ps_packet_start_code[1] = 0x00;
+    ps_packet_start_code[2] = 0x01;
+    ps_packet_start_code[3] = 0xba;
+
+    do {
+        if (find_next_ps_packet(stream_data_buf + processed_size, buffer_capacity - processed_size,
+            &_ps_packet_start_position, &_ps_packet_length))
+        {
+            if (_ps_packet_length != deal_ps_packet(stream_data_buf + _ps_packet_start_position + processed_size, _ps_packet_length))
+            {
+                LOG("please check if ps packe is right.\n");
+            }
+
+            processed_size += _ps_packet_length;
+            buffer_size = buffer_capacity - processed_size;
+        }
+        else
+        {
+            if (buffer_size < buffer_capacity)
+            {
+                if (0 < processed_size)
+                {
+                    memset(tmp_data_buf, 0x00, buffer_capacity);
+                    memcpy(tmp_data_buf, stream_data_buf + processed_size, buffer_capacity - processed_size);
+
+                    memset(stream_data_buf, 0x00, buffer_capacity);
+                    memcpy(stream_data_buf, tmp_data_buf, buffer_capacity - processed_size);
+
+                    buffer_left_size = processed_size;
+                    processed_size = 0;
+                }
+
+                //read data from network, to fill buffer.
+                if (buffer_left_size == m_callback_pull_ps_stream(NULL, stream_data_buf + (MAX_BUFFER_SIZE - buffer_left_size), buffer_left_size))
+                {
+                    buffer_size = buffer_capacity;
+                }
+
+                continue;
+            }
+            else if (buffer_size == buffer_capacity)
+            {
+                if (0 < _ps_packet_start_position)
+                {
+                    LOG("have find first PS packet.");
+
+                    memset(tmp_data_buf, 0x00, buffer_capacity);
+                    memcpy(tmp_data_buf, stream_data_buf + _ps_packet_start_position, buffer_capacity - _ps_packet_start_position);
+
+                    memset(stream_data_buf, 0x00, buffer_capacity);
+                    memcpy(stream_data_buf, tmp_data_buf, buffer_capacity - _ps_packet_start_position);
+
+                    buffer_size = buffer_capacity - _ps_packet_start_position;
+                    buffer_left_size = _ps_packet_start_position;
+                    processed_size = 0;
+                }
+                else
+                {
+                    LOG("buffer is too small.\n");
+
+                    memset(tmp_data_buf, 0x00, buffer_capacity);
+                    memset(stream_data_buf, 0x00, buffer_capacity);
+                    buffer_size = 0;
+                    buffer_left_size = buffer_capacity;
+                    processed_size = 0;
+                }
+            }
+            else
+            {
+                LOG("error : buffer_size > buffer_capacity");
+            }
+        }
+    } while (true);
+
+
+    //release memory
+    if (NULL != stream_data_buf)
+    {
+        free(stream_data_buf);
+    }
+
+    if (NULL != tmp_data_buf)
+    {
+        free(tmp_data_buf);
+    }
+
+    return 0;
+}
+
+void bsm_demuxer2::setup_callback_function(callback_pull_ps_stream_demuxer2 pull_ps_stream,
+    callback_push_es_video_stream_demuxer2 push_es_video_stream,
+    callback_push_es_audio_stream_demuxer2 push_es_audio_stream)
+{
+    m_callback_pull_ps_stream = pull_ps_stream;
+    m_callback_push_es_video_stream = push_es_video_stream;
+    m_callback_push_es_audio_stream = push_es_audio_stream;
+}
+
+}//namespace bsm_video_decoder
+}//namespace bsm
