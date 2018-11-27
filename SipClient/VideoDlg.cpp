@@ -7,6 +7,37 @@
 #include "afxdialogex.h"
 #include "StreamManager\StreamManager.h"
 
+using namespace bsm;
+using namespace bsm_utils;
+
+stream_manager* g_ps_stream_fifo;
+stream_manager* g_h264_es_stream_fifo;
+stream_manager* g_rgb24_stram_fifo;
+
+void init_steam_fifo()
+{
+
+    g_ps_stream_fifo = new stream_manager();
+    g_h264_es_stream_fifo = new stream_manager();
+    g_rgb24_stram_fifo = new stream_manager();
+
+    if(g_ps_stream_fifo)
+    { 
+        g_ps_stream_fifo->set_capacity_size(2 * 1024 * 1024);
+    }
+
+    if (g_h264_es_stream_fifo)
+    {
+        g_h264_es_stream_fifo->set_capacity_size(2 * 1024 * 1024);
+    }
+    
+    if (g_rgb24_stram_fifo)
+    {
+        g_rgb24_stram_fifo->set_capacity_size(2 * 1024 * 1024);
+    }
+}
+
+
 //callback functions. 
 
 /**
@@ -18,7 +49,9 @@ int callback_push_ps_stream(void *opaque, uint8_t *buf, int data_length)
     int write_data_length = 0;
     int read_data_length = 0;
     unsigned char buffer[100 * 1024] = { 0 };
-    write_data_length = stream_manager::get_instance()->push_data(buf, data_length);
+
+    //write_data_length = stream_manager::get_instance()->push_data(buf, data_length);
+    write_data_length = g_ps_stream_fifo->push_data(buf, data_length);
     if (0 < write_data_length)
     {
         //LOG("write data, data_length=%d\n", write_data_length);
@@ -36,7 +69,7 @@ int callback_pull_ps_stream_dexuxer(void *opaque, uint8_t *buf, int buf_size)
     int recv_date_length = 0;
     while (recv_date_length != buf_size)
     {
-        recv_date_length = stream_manager::get_instance()->pull_data(NULL, buf, buf_size);
+        recv_date_length = g_ps_stream_fifo->pull_data(NULL, buf, buf_size);
         //LOG("src stream_manager don't have enought data, callback will waite a moment.\n");
     }
     LOG("receive data success, receive size = %d.\n", recv_date_length);
@@ -81,6 +114,8 @@ CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
     
     bsm_demuxer::setup_callback_function(callback_pull_ps_stream_dexuxer, callback_push_es_video_stream, NULL);
     m_pDemux = new bsm_demuxer();
+
+    init_steam_fifo();
 
     //m_pDemux2 = new bsm_demuxer2();
 }
@@ -140,11 +175,6 @@ void CVideoDlg::PlayThreadProc(void* pParam)
 
 bool CVideoDlg::StartPlay()
 {
-    //m_pMediaSession = new CMediaSession();
-    //m_pMediaSession->StartProc();
-
-    stream_manager::set_capacity_size(4 * 1024 * 1024);
-
     m_p_rtp_receiver->set_cleint_ip("192.168.2.102");
     m_p_rtp_receiver->start_proc();
 
@@ -195,7 +225,7 @@ int CVideoDlg::Play()
 
     while (m_bplayThreadRuning)
     {
-
+        
     }
     return 0;
 #endif

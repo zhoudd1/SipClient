@@ -1,7 +1,7 @@
 #pragma once
 
 #include "MediaSession\MediaSession.h"
-//#include "StreamManager\StreamManager.h"
+#include "StreamManager\StreamManager.h"
 #include "video_decoder\Demuxer.h"
 #include "video_decoder\Demuxer2.h"
 #include "RtpReceiver\RtpReceiver.h"
@@ -38,6 +38,7 @@ private:
     bsm_demuxer* m_pDemux;
     bsm_demuxer2* m_pDemux2;
     unsigned char* m_stream_buffer;
+
 
 public:
     static void PlayThreadProc(void* pParam);   //Ïß³Ìº¯Êý

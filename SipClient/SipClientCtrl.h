@@ -6,7 +6,7 @@
 // CSipClientCtrl : See SipClientCtrl.cpp for implementation.
 #include "VideoDlg.h"
 #include "SipUA\SipUA.h"
-#include "DataRepository\include\DataRepository.h"
+//#include "DataRepository\include\DataRepository.h"
 
 /**
 *   global variable

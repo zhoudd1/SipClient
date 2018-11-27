@@ -342,9 +342,6 @@
     <ClCompile Include="VideoDlg.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\DataRepository\include\DataRepository.h" />
-    <ClInclude Include="..\DataRepository\include\MyFifo.h" />
-    <ClInclude Include="..\DataRepository\include\MyNode.h" />
     <ClInclude Include="..\StreamManager\StreamManager.h" />
     <ClInclude Include="..\utils\bsm_lock.h" />
     <ClInclude Include="..\utils\logger.h" />
