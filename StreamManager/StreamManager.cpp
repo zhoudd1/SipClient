@@ -1,8 +1,5 @@
 #include "StreamManager.h"
 
-//stream_manager* stream_manager::m_instance = NULL;
-//int stream_manager::m_capacity = 0;
-
 stream_manager::stream_manager(int capacity)
     :m_capacity(capacity)
 {
