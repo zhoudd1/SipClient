@@ -325,6 +325,7 @@
     <ClCompile Include="..\utils\logger.cpp" />
     <ClCompile Include="..\video_decoder\Demuxer.cpp" />
     <ClCompile Include="..\video_decoder\Demuxer2.cpp" />
+    <ClCompile Include="..\video_decoder\h264_decoder.cpp" />
     <ClCompile Include="MediaSession\MediaSession.cpp" />
     <ClCompile Include="RtpReceiver\RtpReceiver.cpp" />
     <ClCompile Include="SipClient.cpp" />
@@ -347,6 +348,7 @@
     <ClInclude Include="..\utils\logger.h" />
     <ClInclude Include="..\video_decoder\Demuxer.h" />
     <ClInclude Include="..\video_decoder\Demuxer2.h" />
+    <ClInclude Include="..\video_decoder\h264_decoder.h" />
     <ClInclude Include="MediaSession\MediaSession.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="RtpReceiver\RtpReceiver.h" />

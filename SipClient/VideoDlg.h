@@ -48,5 +48,7 @@ public:
     bool StartPlay();
     bool StopPlay();
     int Play();
+
+    void gdi_render();
     char* getSdpInfo();
 };

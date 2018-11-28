@@ -244,3 +244,46 @@ int CVideoDlg::Play()
     return 0;
 #endif
 }
+
+void CVideoDlg::gdi_render()
+{
+    //HDC hdc = GetDC(hwnd);
+
+    //RECT rect;
+    //GetWindowRect(hwnd, &rect);
+    //int screen_w = rect.right - rect.left;
+    //int screen_h = rect.bottom - rect.top;
+
+    //int pixel_w = 1920, pixel_h = 1080;
+
+    ////BMP Header
+    //BITMAPINFO bmphdr = { 0 };
+    //DWORD dwBmpHdr = sizeof(BITMAPINFO);
+    ////24bit
+    //bmphdr.bmiHeader.biBitCount = 24;
+    //bmphdr.bmiHeader.biClrImportant = 0;
+    //bmphdr.bmiHeader.biSize = dwBmpHdr;
+    //bmphdr.bmiHeader.biSizeImage = 0;
+    //bmphdr.bmiHeader.biWidth = pixel_w;
+    ////Notice: BMP storage pixel data in opposite direction of Y-axis (from bottom to top).
+    ////So we must set reverse biHeight to show image correctly.
+    //bmphdr.bmiHeader.biHeight = -pixel_h;
+    //bmphdr.bmiHeader.biXPelsPerMeter = 0;
+    //bmphdr.bmiHeader.biYPelsPerMeter = 0;
+    //bmphdr.bmiHeader.biClrUsed = 0;
+    //bmphdr.bmiHeader.biPlanes = 1;
+    //bmphdr.bmiHeader.biCompression = BI_RGB;
+
+    ////Draw data
+    //int nResult = StretchDIBits(hdc,
+    //    0, 0,
+    //    screen_w, screen_h,
+    //    0, 0,
+    //    pixel_w, pixel_h,
+    //    buffer,
+    //    &bmphdr,
+    //    DIB_RGB_COLORS,
+    //    SRCCOPY);
+
+    //ReleaseDC(hwnd, hdc);
+}
