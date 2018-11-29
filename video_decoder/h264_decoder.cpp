@@ -38,6 +38,19 @@ extern "C"
 namespace bsm {
 namespace bsm_video_decoder {
 
+    void h264_decoder::write_media_data_to_file(unsigned char *buf, int wrap, int xsize, int ysize,
+        char *filename)
+    {
+        FILE *f;
+        int i;
+
+        f = fopen(filename, "ab+");
+        //fprintf(f, "P5\n%d %d\n%d\n", xsize, ysize, 255);
+        for (i = 0; i < ysize; i++)
+            fwrite(buf + i * wrap, 1, xsize, f);
+        fclose(f);
+    }
+
         h264_decoder::h264_decoder(int stream_buffer_size)
             :m_stream_buffer_size(stream_buffer_size),
             m_stream_buffer_data_size(0)
@@ -231,6 +244,11 @@ namespace bsm_video_decoder {
                             LOG("success, get a frame.\n");
                             LOG("frame->linesize[0]: %d, frame->width:%d, frame->height:%d",
                                 av_frame->linesize[0], av_frame->width, av_frame->height);
+
+
+                            
+                            write_media_data_to_file(av_frame->data[0], av_frame->linesize[0],
+                                av_frame->width, av_frame->height, "e://sipclient.rgb");
                         }
                         else
                         {

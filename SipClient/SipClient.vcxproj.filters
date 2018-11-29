@@ -55,6 +55,12 @@
     <Filter Include="Header Files\utils">
       <UniqueIdentifier>{0004dd95-b785-4b61-b51f-cd8eb9697ce4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\image_decoder">
+      <UniqueIdentifier>{1bb729fa-ecee-475e-937e-76cb52e0399a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\image_decoder">
+      <UniqueIdentifier>{772734d9-5178-45a8-ac3e-cf3670838ec9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -101,6 +107,9 @@
     </ClCompile>
     <ClCompile Include="..\video_decoder\h264_decoder.cpp">
       <Filter>Source Files\VideoDecoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\image_decoder\bsm_image_encoder.cpp">
+      <Filter>Source Files\image_decoder</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -151,6 +160,9 @@
     </ClInclude>
     <ClInclude Include="..\video_decoder\h264_decoder.h">
       <Filter>Header Files\VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\image_decoder\bsm_image_encoder.h">
+      <Filter>Header Files\image_decoder</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

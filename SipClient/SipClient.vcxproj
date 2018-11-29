@@ -320,6 +320,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\image_decoder\bsm_image_encoder.cpp" />
     <ClCompile Include="..\StreamManager\StreamManager.cpp" />
     <ClCompile Include="..\utils\bsm_lock.cpp" />
     <ClCompile Include="..\utils\logger.cpp" />
@@ -343,6 +344,7 @@
     <ClCompile Include="VideoDlg.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\image_decoder\bsm_image_encoder.h" />
     <ClInclude Include="..\StreamManager\StreamManager.h" />
     <ClInclude Include="..\utils\bsm_lock.h" />
     <ClInclude Include="..\utils\logger.h" />
