@@ -79,6 +79,18 @@ int callback_pull_ps_stream_dexuxer(void *opaque, uint8_t *buf, int buf_size)
 
 int callback_push_es_video_stream(void *opaque, uint8_t *data, int data_length)
 {
+#if 1
+    int write_data_length = 0;
+    int read_data_length = 0;
+
+    write_data_length = g_h264_es_stream_fifo->push_data(data, data_length);
+    if (0 < write_data_length)
+    {
+        //LOG("write data, data_length=%d\n", write_data_length);
+    }
+    return write_data_length;
+#endif
+#if 0
     char* file_name = "E://28181_demuxer_callback_stream.h264";
     FILE* p_file = NULL;
     int write_data_size = 0;
@@ -97,6 +109,23 @@ int callback_push_es_video_stream(void *opaque, uint8_t *data, int data_length)
         }
     }
     return write_data_size;
+#endif
+}
+
+/**
+*    callback function, used for h264_decoder, which use ffmpeg.
+*/
+int callback_pull_h264_stream(void *opaque, unsigned char *buf, int buf_size)
+{
+    int recv_date_length = 0;
+    while (recv_date_length != buf_size)
+    {
+        recv_date_length = g_h264_es_stream_fifo->pull_data(NULL, buf, buf_size);
+        //LOG("src stream_manager don't have enought data, callback will waite a moment.\n");
+    }
+    LOG("receive data success, receive size = %d.\n", recv_date_length);
+
+    return recv_date_length;
 }
 
 // CVideoDlg dialog
@@ -114,6 +143,9 @@ CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
     
     bsm_demuxer::setup_callback_function(callback_pull_ps_stream_dexuxer, callback_push_es_video_stream, NULL);
     m_pDemux = new bsm_demuxer();
+
+    m_h264_decoder = new h264_decoder();
+    m_h264_decoder->setup_callback_function(callback_pull_h264_stream);
 
     init_steam_fifo();
 
@@ -173,10 +205,27 @@ void CVideoDlg::PlayThreadProc(void* pParam)
     }
 }
 
+void CVideoDlg::ps_packet_demuxer_proc(void* pParam)
+{
+    if (pParam)
+    {
+        CVideoDlg* pThis = (CVideoDlg*)pParam;
+        pThis->demux_ps_packet();
+    }
+}
+
 bool CVideoDlg::StartPlay()
 {
     m_p_rtp_receiver->set_cleint_ip("192.168.2.102");
     m_p_rtp_receiver->start_proc();
+
+    m_bps_packet_demuxer_thread_runing = true;
+    m_ps_packet_demuxer_handle = (HANDLE)_beginthread(ps_packet_demuxer_proc, 0, (void*)this);
+    if (0 == m_ps_packet_demuxer_handle)
+    {
+        LOG("ps packet demuxer thread start failure.\n");
+        return false;
+    }
 
     m_playThreadHandle = (HANDLE)_beginthread(PlayThreadProc, 0, (void*)this);
     if (0 == m_playThreadHandle)
@@ -218,14 +267,17 @@ int CVideoDlg::Play()
 #if 1
     //m_pDemux->set_output_es_video_file("E://dialog_mediaplay.h264");
 
-    if (m_pDemux)
-    {
-        m_pDemux->demux_ps_to_es_network();
-    }
+    unsigned char* media_stream_buffer = (unsigned char*)malloc(4 * 1024 * 1024);
 
     while (m_bplayThreadRuning)
     {
-        
+        if (m_h264_decoder)
+        {
+            if (m_h264_decoder->get_rgb24_frame(media_stream_buffer, 480, 320))
+            {
+
+            }
+        }
     }
     return 0;
 #endif
@@ -243,6 +295,17 @@ int CVideoDlg::Play()
     m_pDemux2->deal_ps_packet(stream_buffer, ps_packet_length);
     return 0;
 #endif
+}
+
+void CVideoDlg::demux_ps_packet()
+{
+    while (m_bps_packet_demuxer_thread_runing)
+    {
+        if (m_pDemux)
+        {
+            m_pDemux->demux_ps_to_es_network();
+        }
+    }
 }
 
 void CVideoDlg::gdi_render()
