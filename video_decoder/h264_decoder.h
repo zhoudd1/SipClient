@@ -1,8 +1,6 @@
 #ifndef __H264_DECODER_H__
 #define __H264_DECODER_H__
 
-#include "image_decoder\bsm_image_encoder.h"
-
 namespace bsm {
 namespace bsm_video_decoder {
 
@@ -43,11 +41,10 @@ private:
     bool decode_h264_to_rgb24(unsigned char* h264_source, unsigned char* rgb24_dest, int width, int hight);
     bool decode_h264_to_yuv420p(unsigned char* h264_source, unsigned char* yuv420p_dest, int width, int hight);
 
-    void write_media_data_to_file(unsigned char *buf, int wrap, int xsize, int ysize,
-        char *filename);
+    void write_media_data_to_file(char* file_name, void* pLog, int nLen);
 
 public:
-    bool get_rgb24_frame(unsigned char* pframe, int width, int hight);
+    bool get_rgb24_frame(unsigned char* pframe_buffer, int pframe_buffer_size, int* frame_size, int width, int hight);
     bool get_yuv420p_frame(unsigned char* pframe, int width, int hight);
 
     bool get_one_nalu_packet(unsigned char* nalu_packet);
@@ -62,8 +59,6 @@ private:
     int m_stream_buffer_size;
     int m_stream_buffer_data_size;
     unsigned char* m_stream_buffer_data_header;
-
-    bsm::image_encoder::bsm_image_encoder m_image_encoder;
 
     callback_pull_h264_stream_h264_decoder m_callback_pull_h264_stream;
 };

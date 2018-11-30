@@ -16,7 +16,6 @@ stream_manager* g_rgb24_stram_fifo;
 
 void init_steam_fifo()
 {
-
     g_ps_stream_fifo = new stream_manager();
     g_h264_es_stream_fifo = new stream_manager();
     g_rgb24_stram_fifo = new stream_manager();
@@ -36,7 +35,6 @@ void init_steam_fifo()
         g_rgb24_stram_fifo->set_capacity_size(2 * 1024 * 1024);
     }
 }
-
 
 //callback functions. 
 
@@ -137,6 +135,7 @@ CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
 {
     m_pMediaSession = NULL;
     m_stream_buffer = (unsigned char*)malloc(STREAM_BUFFER_SIZE);
+    m_stream_buffer_capacity = STREAM_BUFFER_SIZE;
 
     CRtpReceiver::setup_callback_function(callback_push_ps_stream, NULL, NULL, NULL);
     m_p_rtp_receiver = new CRtpReceiver();
@@ -148,8 +147,6 @@ CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
     m_h264_decoder->setup_callback_function(callback_pull_h264_stream);
 
     init_steam_fifo();
-
-    //m_pDemux2 = new bsm_demuxer2();
 }
 
 CVideoDlg::~CVideoDlg()
@@ -200,8 +197,8 @@ void CVideoDlg::PlayThreadProc(void* pParam)
 {
     if(pParam)
     {
-        CVideoDlg* pThis = (CVideoDlg*)pParam;
-        pThis->Play();
+        CVideoDlg* p_video_dialog = (CVideoDlg*)pParam;
+        p_video_dialog->Play();
     }
 }
 
@@ -209,22 +206,54 @@ void CVideoDlg::ps_packet_demuxer_proc(void* pParam)
 {
     if (pParam)
     {
-        CVideoDlg* pThis = (CVideoDlg*)pParam;
-        pThis->demux_ps_packet();
+        CVideoDlg* p_video_dialog = (CVideoDlg*)pParam;
+        p_video_dialog->demux_ps_packet();
+    }
+}
+
+void CVideoDlg::h264_decode_proc(void* pParam)
+{
+    if (pParam)
+    {
+        CVideoDlg* p_video_dialog = (CVideoDlg*)pParam;
+        p_video_dialog->decode_h264_data();
     }
 }
 
 bool CVideoDlg::StartPlay()
 {
+    RECT rect;
+    GetWindowRect(&rect);
+    m_video_dialog_width = rect.right - rect.left;
+    m_video_dialog_height = rect.bottom - rect.top;
+
     m_p_rtp_receiver->set_cleint_ip("192.168.2.102");
     m_p_rtp_receiver->start_proc();
 
+    //start ps demux thread
     m_bps_packet_demuxer_thread_runing = true;
     m_ps_packet_demuxer_handle = (HANDLE)_beginthread(ps_packet_demuxer_proc, 0, (void*)this);
     if (0 == m_ps_packet_demuxer_handle)
     {
         LOG("ps packet demuxer thread start failure.\n");
         return false;
+    }
+    else
+    {
+        LOG("ps packet demuxer thread start success.\n");
+    }
+
+    //strat h264 decode thread
+    m_h264_decoder_thread_runing = true;
+    m_h264_decoder_handle = (HANDLE)_beginthread(h264_decode_proc, 0, (void*)this);
+    if(0 == m_h264_decoder_handle)
+    {
+        LOG("h264 decode thread start failure.\n");
+        return false;
+    }
+    else
+    {
+        LOG("h264 decode thread start success.\n");
     }
 
     m_playThreadHandle = (HANDLE)_beginthread(PlayThreadProc, 0, (void*)this);
@@ -257,44 +286,14 @@ char* CVideoDlg::getSdpInfo()
     }
 }
 
-
-
 int CVideoDlg::Play()
 {
-    /**
-    *   use CDemux
-    */
-#if 1
-    //m_pDemux->set_output_es_video_file("E://dialog_mediaplay.h264");
-
-    unsigned char* media_stream_buffer = (unsigned char*)malloc(4 * 1024 * 1024);
 
     while (m_bplayThreadRuning)
     {
-        if (m_h264_decoder)
-        {
-            if (m_h264_decoder->get_rgb24_frame(media_stream_buffer, 480, 320))
-            {
-
-            }
-        }
+        gdi_render();
     }
     return 0;
-#endif
-
-    /**
-    *   use CDemux2
-    */
-
-#if 0
-    unsigned char stream_buffer[100 * 1024];
-    int ps_packet_length = 0;
-    //m_pDemux2->setup_dst_es_video_file("E://success_data//tmp1.h264");
-
-    //CStreamManager::get_instance()->get_a_ps_packet(stream_buffer, &ps_packet_length);
-    m_pDemux2->deal_ps_packet(stream_buffer, ps_packet_length);
-    return 0;
-#endif
 }
 
 void CVideoDlg::demux_ps_packet()
@@ -308,45 +307,55 @@ void CVideoDlg::demux_ps_packet()
     }
 }
 
+void CVideoDlg::decode_h264_data()
+{
+    while (m_h264_decoder_thread_runing)
+    {
+        if (m_h264_decoder)
+        {
+            if (m_h264_decoder->get_rgb24_frame(m_stream_buffer, m_stream_buffer_capacity, &m_current_frame_size, 640, 480))
+            {
+
+            }
+        }
+    }
+}
+
 void CVideoDlg::gdi_render()
 {
-    //HDC hdc = GetDC(hwnd);
+    HDC hdc;
+    hdc = ::GetDC(m_hWnd);
 
-    //RECT rect;
-    //GetWindowRect(hwnd, &rect);
-    //int screen_w = rect.right - rect.left;
-    //int screen_h = rect.bottom - rect.top;
+    int pixel_w = 640, pixel_h = 480;
 
-    //int pixel_w = 1920, pixel_h = 1080;
+    //BMP Header
+    BITMAPINFO bmphdr = { 0 };
+    DWORD dwBmpHdr = sizeof(BITMAPINFO);
+    //24bit
+    bmphdr.bmiHeader.biBitCount = 24;
+    bmphdr.bmiHeader.biClrImportant = 0;
+    bmphdr.bmiHeader.biSize = dwBmpHdr;
+    bmphdr.bmiHeader.biSizeImage = 0;
+    bmphdr.bmiHeader.biWidth = pixel_w;
+    //Notice: BMP storage pixel data in opposite direction of Y-axis (from bottom to top).
+    //So we must set reverse biHeight to show image correctly.
+    bmphdr.bmiHeader.biHeight = -pixel_h;
+    bmphdr.bmiHeader.biXPelsPerMeter = 0;
+    bmphdr.bmiHeader.biYPelsPerMeter = 0;
+    bmphdr.bmiHeader.biClrUsed = 0;
+    bmphdr.bmiHeader.biPlanes = 1;
+    bmphdr.bmiHeader.biCompression = BI_RGB;
 
-    ////BMP Header
-    //BITMAPINFO bmphdr = { 0 };
-    //DWORD dwBmpHdr = sizeof(BITMAPINFO);
-    ////24bit
-    //bmphdr.bmiHeader.biBitCount = 24;
-    //bmphdr.bmiHeader.biClrImportant = 0;
-    //bmphdr.bmiHeader.biSize = dwBmpHdr;
-    //bmphdr.bmiHeader.biSizeImage = 0;
-    //bmphdr.bmiHeader.biWidth = pixel_w;
-    ////Notice: BMP storage pixel data in opposite direction of Y-axis (from bottom to top).
-    ////So we must set reverse biHeight to show image correctly.
-    //bmphdr.bmiHeader.biHeight = -pixel_h;
-    //bmphdr.bmiHeader.biXPelsPerMeter = 0;
-    //bmphdr.bmiHeader.biYPelsPerMeter = 0;
-    //bmphdr.bmiHeader.biClrUsed = 0;
-    //bmphdr.bmiHeader.biPlanes = 1;
-    //bmphdr.bmiHeader.biCompression = BI_RGB;
+    //Draw data
+    int nResult = StretchDIBits(hdc,
+        0, 0,
+        m_video_dialog_width, m_video_dialog_height,
+        0, 0,
+        pixel_w, pixel_h,
+        m_stream_buffer,
+        &bmphdr,
+        DIB_RGB_COLORS,
+        SRCCOPY);
 
-    ////Draw data
-    //int nResult = StretchDIBits(hdc,
-    //    0, 0,
-    //    screen_w, screen_h,
-    //    0, 0,
-    //    pixel_w, pixel_h,
-    //    buffer,
-    //    &bmphdr,
-    //    DIB_RGB_COLORS,
-    //    SRCCOPY);
-
-    //ReleaseDC(hwnd, hdc);
+    ::ReleaseDC(m_hWnd, hdc);
 }

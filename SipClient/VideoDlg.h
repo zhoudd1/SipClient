@@ -40,21 +40,31 @@ private:
     bsm_demuxer2* m_pDemux2;
     h264_decoder * m_h264_decoder;
     unsigned char* m_stream_buffer;
+    int m_stream_buffer_capacity;
+    int m_current_frame_size;
+
+    int m_video_dialog_width;
+    int m_video_dialog_height;
 
 
 public:
-    static void PlayThreadProc(void* pParam);   //线程函数
-    HANDLE m_playThreadHandle;                  //线程句柄
-    bool m_bplayThreadRuning;                   //线程运行状态
+    static void PlayThreadProc(void* pParam);   //thread function
+    HANDLE m_playThreadHandle;                  //thread handle
+    bool m_bplayThreadRuning;                   //thread running state
 
-    static void ps_packet_demuxer_proc(void* pParam);   //线程函数
-    HANDLE m_ps_packet_demuxer_handle;                  //线程句柄
-    bool m_bps_packet_demuxer_thread_runing;                   //线程运行状态
+    static void ps_packet_demuxer_proc(void* pParam);   //thread function
+    HANDLE m_ps_packet_demuxer_handle;                  //thread handle
+    bool m_bps_packet_demuxer_thread_runing;            //thread running state
+
+    static void h264_decode_proc(void* pParam);   //thread function
+    HANDLE m_h264_decoder_handle;                  //thread handle
+    bool m_h264_decoder_thread_runing;            //thread running state
 
     bool StartPlay();
     bool StopPlay();
     int Play();
     void demux_ps_packet();
+    void decode_h264_data();
 
     void gdi_render();
     char* getSdpInfo();

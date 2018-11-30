@@ -38,364 +38,407 @@ extern "C"
 namespace bsm {
 namespace bsm_video_decoder {
 
-    void h264_decoder::write_media_data_to_file(unsigned char *buf, int wrap, int xsize, int ysize,
-        char *filename)
+void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLen)
+{
+    FILE* pf_media_file = NULL;
+    if (pLog != NULL && nLen > 0)
     {
-        FILE *f;
-        int i;
-
-        f = fopen(filename, "ab+");
-        //fprintf(f, "P5\n%d %d\n%d\n", xsize, ysize, 255);
-        for (i = 0; i < ysize; i++)
-            fwrite(buf + i * wrap, 1, xsize, f);
-        fclose(f);
-    }
-
-        h264_decoder::h264_decoder(int stream_buffer_size)
-            :m_stream_buffer_size(stream_buffer_size),
-            m_stream_buffer_data_size(0)
+        if (NULL == pf_media_file && strlen(file_name) > 0)
         {
-            m_stream_buffer = (unsigned char*)malloc(m_stream_buffer_size);
-            memset(m_stream_buffer, 0x00, stream_buffer_size);
-            m_stream_buffer_data_header = m_stream_buffer;
+            // must open file as binary model, otherwise, on windows it will replease '\n' to '\r\n'.
+            pf_media_file = fopen(file_name, "ab+");
         }
 
-        bool h264_decoder::find_next_hx_str(unsigned char* source, int source_length, unsigned char* seed, int seed_length, int* position)
+        if (pf_media_file != NULL)
         {
-            if (!source || !seed)
-            {
-                return false;
-            }
+            fwrite(pLog, nLen, 1, pf_media_file);
+            fflush(pf_media_file);
+            fclose(pf_media_file);
+            pf_media_file = NULL;
+        }
+    }
+}
 
-            unsigned char* pHeader = source;
-            int total_length = source_length;
-            int processed_length = 0;
+    h264_decoder::h264_decoder(int stream_buffer_size)
+        :m_stream_buffer_size(stream_buffer_size),
+        m_stream_buffer_data_size(0)
+    {
+        m_stream_buffer = (unsigned char*)malloc(m_stream_buffer_size);
+        memset(m_stream_buffer, 0x00, stream_buffer_size);
+        m_stream_buffer_data_header = m_stream_buffer;
+    }
 
-            while (total_length - processed_length >= seed_length)
-            {
-                for (int i = 0; i < seed_length && (pHeader[i] == seed[i]); i++)
-                {
-                    if (seed_length - 1 == i)
-                    {
-                        *position = processed_length;
-                        return true;
-                    }
-                }
-
-                processed_length++;
-                pHeader = source + processed_length;
-            }
-
+    bool h264_decoder::find_next_hx_str(unsigned char* source, int source_length, unsigned char* seed, int seed_length, int* position)
+    {
+        if (!source || !seed)
+        {
             return false;
         }
 
-        bool h264_decoder::find_next_es_packet(unsigned char* source, int source_length, int* es_packet_start_point, int* es_packet_length)
+        unsigned char* pHeader = source;
+        int total_length = source_length;
+        int processed_length = 0;
+
+        while (total_length - processed_length >= seed_length)
         {
-            if (!source)
+            for (int i = 0; i < seed_length && (pHeader[i] == seed[i]); i++)
             {
-                return false;
-            }
-
-            int _h264_packet_start_point = 0;
-            int _h264_packet_end_point = 0;
-
-            unsigned char h264_packet_start_code_32bit[4];
-            h264_packet_start_code_32bit[0] = 0x00;
-            h264_packet_start_code_32bit[1] = 0x00;
-            h264_packet_start_code_32bit[2] = 0x00;
-            h264_packet_start_code_32bit[3] = 0x01;
-
-            unsigned char h264_packet_start_code_24bit[4];
-            h264_packet_start_code_24bit[0] = 0x00;
-            h264_packet_start_code_24bit[1] = 0x00;
-            h264_packet_start_code_24bit[2] = 0x01;
-
-            // find nalu packet, when prefix is '00 00 00 01'.
-            if (find_next_hx_str(source, source_length, h264_packet_start_code_32bit, 4, &_h264_packet_start_point))
-            {
-                if (find_next_hx_str(source + 4, source_length - 4, h264_packet_start_code_32bit, 4, &_h264_packet_end_point))
+                if (seed_length - 1 == i)
                 {
-                    *es_packet_start_point = _h264_packet_start_point;
-                    *es_packet_length = (_h264_packet_end_point - _h264_packet_start_point) + 4;
+                    *position = processed_length;
                     return true;
                 }
-                else
-                {
-                    return false;
-                }
+            }
+
+            processed_length++;
+            pHeader = source + processed_length;
+        }
+
+        return false;
+    }
+
+    bool h264_decoder::find_next_es_packet(unsigned char* source, int source_length, int* es_packet_start_point, int* es_packet_length)
+    {
+        if (!source)
+        {
+            return false;
+        }
+
+        int _h264_packet_start_point = 0;
+        int _h264_packet_end_point = 0;
+
+        unsigned char h264_packet_start_code_32bit[4];
+        h264_packet_start_code_32bit[0] = 0x00;
+        h264_packet_start_code_32bit[1] = 0x00;
+        h264_packet_start_code_32bit[2] = 0x00;
+        h264_packet_start_code_32bit[3] = 0x01;
+
+        unsigned char h264_packet_start_code_24bit[4];
+        h264_packet_start_code_24bit[0] = 0x00;
+        h264_packet_start_code_24bit[1] = 0x00;
+        h264_packet_start_code_24bit[2] = 0x01;
+
+        // find nalu packet, when prefix is '00 00 00 01'.
+        if (find_next_hx_str(source, source_length, h264_packet_start_code_32bit, 4, &_h264_packet_start_point))
+        {
+            if (find_next_hx_str(source + 4, source_length - 4, h264_packet_start_code_32bit, 4, &_h264_packet_end_point))
+            {
+                *es_packet_start_point = _h264_packet_start_point;
+                *es_packet_length = (_h264_packet_end_point - _h264_packet_start_point) + 4;
+                return true;
             }
             else
             {
                 return false;
             }
         }
-
-        bool h264_decoder::decode_h264_to_rgb24(unsigned char* h264_source, unsigned char* rgb24_dest, int width, int hight)
+        else
         {
+            return false;
+        }
+    }
 
-            return true;
+    bool h264_decoder::decode_h264_to_rgb24(unsigned char* h264_source, unsigned char* rgb24_dest, int width, int hight)
+    {
+
+        return true;
+    }
+
+    bool h264_decoder::decode_h264_to_yuv420p(unsigned char* h264_source, unsigned char* yuv420p_dest, int width, int hight)
+    {
+        return true;
+    }
+
+    bool h264_decoder::get_rgb24_frame(unsigned char* pframe_buffer, int pframe_buffer_size, int* frame_size, int width, int hight)
+    {
+        AVIOContext *av_io_context_input = NULL;
+        AVIOContext *av_io_context_output = NULL;
+
+        AVInputFormat * input_formate = NULL;
+        AVOutputFormat *av_output_format = NULL;
+
+        AVFormatContext *av_format_context_input = NULL;
+        AVFormatContext *av_formate_context_out_video = NULL;
+
+        AVCodecParserContext *av_codec_praser_context = NULL;
+        AVCodecContext	*av_codec_context = NULL;
+        AVCodec			*av_codec = NULL;
+
+        AVStream *in_stream_ps = NULL;
+        AVStream *out_stream_es;
+        AVPacket *av_packet;
+        AVFrame	*av_frame;
+        AVFrame *dst_frame;
+
+        struct SwsContext *img_convert_ctx;
+        img_convert_ctx = sws_alloc_context();
+
+        int convert_size = 0;
+        int videoindex = -1;
+
+        unsigned char* input_buffer = (unsigned char*)av_malloc(m_stream_buffer_size);
+
+        // input
+        av_format_context_input = avformat_alloc_context();
+        av_io_context_input = avio_alloc_context(input_buffer, m_stream_buffer_size, 0, NULL, m_callback_pull_h264_stream, NULL, NULL);
+        if (av_io_context_input == NULL)
+        {
+            return false;
         }
 
-        bool h264_decoder::decode_h264_to_yuv420p(unsigned char* h264_source, unsigned char* yuv420p_dest, int width, int hight)
+        av_format_context_input->pb = av_io_context_input;
+        av_format_context_input->flags = AVFMT_FLAG_CUSTOM_IO;
+
+        if (avformat_open_input(&av_format_context_input, NULL, NULL, NULL) < 0)
         {
-            return true;
+            LOG("Cannot open input h264 stream.\n");
+            return false;
         }
 
-        bool h264_decoder::get_rgb24_frame(unsigned char* pframe, int width, int hight)
+        if (avformat_find_stream_info(av_format_context_input, NULL) < 0)
         {
-            AVIOContext *av_io_context_input = NULL;
-            AVIOContext *av_io_context_output = NULL;
+            LOG("Cannot find stream information\n");
+            return false;
+        }
 
-            AVInputFormat * input_formate = NULL;
-            AVOutputFormat *av_output_format = NULL;
-
-            AVFormatContext *av_format_context_input = NULL;
-            AVFormatContext *av_formate_context_out_video = NULL;
-
-            AVCodecParserContext *av_codec_praser_context = NULL;
-            AVCodecContext	*av_codec_context = NULL;
-            AVCodec			*av_codec = NULL;
-
-            AVStream *in_stream_ps = NULL;
-            AVStream *out_stream_es;
-            AVPacket *av_packet;
-            AVFrame	*av_frame;
-
-            int videoindex = -1;
-
-            unsigned char* input_buffer = (unsigned char*)av_malloc(m_stream_buffer_size);
-
-            // input
-            av_format_context_input = avformat_alloc_context();
-            av_io_context_input = avio_alloc_context(input_buffer, m_stream_buffer_size, 0, NULL, m_callback_pull_h264_stream, NULL, NULL);
-            if (av_io_context_input == NULL)
+        for (int i = 0; i<av_format_context_input->nb_streams; i++)
+        {
+            if (av_format_context_input->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
             {
-                return false;
+                videoindex = i;
+                break;
             }
+        }
 
-            av_format_context_input->pb = av_io_context_input;
-            av_format_context_input->flags = AVFMT_FLAG_CUSTOM_IO;
+        if (videoindex == -1) {
+            LOG("Didn't find a video stream.\n");
+            return false;
+        }
 
-            if (avformat_open_input(&av_format_context_input, NULL, NULL, NULL) < 0)
+        av_codec = avcodec_find_decoder(av_format_context_input->streams[videoindex]->codecpar->codec_id);
+        if (av_codec == NULL)
+        {
+            LOG("Codec not found.\n");
+            return false;
+        }
+
+        //av_codec_praser_context = av_parser_init(av_codec->id);
+        //if (!av_codec_praser_context)
+        //{
+        //    LOG("parser not found\n");
+        //    return false;
+        //}
+
+        av_codec_context = avcodec_alloc_context3(av_codec);
+        if (!av_codec_context) 
+        {
+            LOG("Could not allocate video codec context\n");
+            return false;
+        }
+
+        if (avcodec_open2(av_codec_context, av_codec, NULL) <0)
+        {
+            LOG("Could not open codec.\n");
+            return false;
+        }
+
+
+        av_packet = (AVPacket *)av_malloc(sizeof(AVPacket));
+        av_frame = av_frame_alloc();
+
+        dst_frame = av_frame_alloc();
+        if (NULL != dst_frame)
+        {
+            dst_frame->width = width;
+            dst_frame->height = hight;
+            dst_frame->format = AV_PIX_FMT_RGB24;
+        }
+
+        //get frame buffer
+        if (av_frame_get_buffer(dst_frame, 1) < 0)
+        {
+            printf("get media buff failure.\n");
+            return false;
+        }
+
+        while (av_read_frame(av_format_context_input, av_packet) >= 0)
+        {
+            if (av_packet->stream_index == videoindex)
             {
-                LOG("Cannot open input h264 stream.\n");
-                return false;
-            }
-
-            if (avformat_find_stream_info(av_format_context_input, NULL) < 0)
-            {
-                LOG("Cannot find stream information\n");
-                return false;
-            }
-
-            for (int i = 0; i<av_format_context_input->nb_streams; i++)
-            {
-                if (av_format_context_input->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+                if (0 == avcodec_send_packet(av_codec_context, av_packet))
                 {
-                    videoindex = i;
-                    break;
-                }
-            }
-
-            if (videoindex == -1) {
-                LOG("Didn't find a video stream.\n");
-                return false;
-            }
-
-            av_codec = avcodec_find_decoder(av_format_context_input->streams[videoindex]->codecpar->codec_id);
-            if (av_codec == NULL)
-            {
-                LOG("Codec not found.\n");
-                return false;
-            }
-
-            //av_codec_praser_context = av_parser_init(av_codec->id);
-            //if (!av_codec_praser_context)
-            //{
-            //    LOG("parser not found\n");
-            //    return false;
-            //}
-
-            av_codec_context = avcodec_alloc_context3(av_codec);
-            if (!av_codec_context) 
-            {
-                LOG("Could not allocate video codec context\n");
-                return false;
-            }
-
-            if (avcodec_open2(av_codec_context, av_codec, NULL) <0)
-            {
-                LOG("Could not open codec.\n");
-                return false;
-            }
-
-
-            av_packet = (AVPacket *)av_malloc(sizeof(AVPacket));
-            av_frame = av_frame_alloc();
-
-            while (av_read_frame(av_format_context_input, av_packet) >= 0)
-            {
-                if (av_packet->stream_index == videoindex)
-                {
-                    if (0 == avcodec_send_packet(av_codec_context, av_packet))
+                    if (0 == avcodec_receive_frame(av_codec_context, av_frame))
                     {
-                        if (0 == avcodec_receive_frame(av_codec_context, av_frame))
-                        {
-                            LOG("success, get a frame.\n");
-                            LOG("frame->linesize[0]: %d, frame->width:%d, frame->height:%d",
-                                av_frame->linesize[0], av_frame->width, av_frame->height);
+                        LOG("success, get a frame.\n");
+                        LOG("frame->linesize[0]: %d, frame->width:%d, frame->height:%d",
+                            av_frame->linesize[0], av_frame->width, av_frame->height);
 
+                        //Set Value
+                        av_opt_set_int(img_convert_ctx, "sws_flags", SWS_BICUBIC | SWS_PRINT_INFO, 0);
+                        av_opt_set_int(img_convert_ctx, "srcw", av_frame->width, 0);
+                        av_opt_set_int(img_convert_ctx, "srch", av_frame->height, 0);
+                        av_opt_set_int(img_convert_ctx, "src_format", AV_PIX_FMT_YUV420P, 0);
+                        //'0' for MPEG (Y:0-235);'1' for JPEG (Y:0-255)
+                        av_opt_set_int(img_convert_ctx, "src_range", 1, 0);
+                        av_opt_set_int(img_convert_ctx, "dstw", width, 0);
+                        av_opt_set_int(img_convert_ctx, "dsth", hight, 0);
+                        av_opt_set_int(img_convert_ctx, "dst_format", AV_PIX_FMT_RGB24, 0);
+                        av_opt_set_int(img_convert_ctx, "dst_range", 1, 0);
+                        sws_init_context(img_convert_ctx, NULL, NULL);
 
+                        sws_scale(img_convert_ctx, av_frame->data, av_frame->linesize, 0, dst_frame->height, dst_frame->data, dst_frame->linesize);
+                        convert_size = av_image_copy_to_buffer(pframe_buffer, pframe_buffer_size, dst_frame->data, dst_frame->linesize, AV_PIX_FMT_RGB24, dst_frame->width, dst_frame->height, 1);
                             
-                            write_media_data_to_file(av_frame->data[0], av_frame->linesize[0],
-                                av_frame->width, av_frame->height, "e://sipclient.rgb");
-                        }
-                        else
+                        if (0 < convert_size)
                         {
-                            LOG("error, when avcodec_receive_frame().\n");
+                            *frame_size = convert_size;
+                            write_media_data_to_file("e://sipclient.rgb", pframe_buffer, convert_size);
                         }
                     }
                     else
                     {
-                        LOG("error, when avcodec_send_packet().\n");
-                    }
-                }      
-            }
-
-
-            av_free(input_buffer);
-            av_packet_unref(av_packet);
-            av_frame_free(&av_frame);
-            avio_context_free(&av_io_context_input);
-            avformat_free_context(av_format_context_input);
-
-            //sws_freeContext(img_convert_ctx);
-
-            return true;
-        }
-
-        bool h264_decoder::get_yuv420p_frame(unsigned char* pframe, int width, int hight)
-        {
-            return true;
-        }
-
-        bool h264_decoder::get_one_nalu_packet(unsigned char* nalu_packet)
-        {
-            int es_packet_start_point;
-            int es_packet_length;
-
-            int callback_get_data_length;
-
-            unsigned char *tmp_stream_buffer = (unsigned char*)malloc(m_stream_buffer_size);
-            if (tmp_stream_buffer)
-            {
-                memset(tmp_stream_buffer, 0x00, m_stream_buffer_size);
-            }
-
-            do {
-                if (find_next_es_packet(m_stream_buffer_data_header, m_stream_buffer_data_size, &es_packet_start_point, &es_packet_length))
-                {
-                    memcpy(tmp_stream_buffer, m_stream_buffer_data_header + es_packet_start_point, es_packet_length);
-                    m_stream_buffer_data_header += es_packet_length;
-
-                    //use ffmpeg deal h264 nalu, which is store in tmp_stream_buffer, now.
-                    if (nalu_packet)
-                    {
-                        memcpy(nalu_packet, tmp_stream_buffer, es_packet_length);
+                        LOG("error, when avcodec_receive_frame().\n");
                     }
                 }
                 else
                 {
-                    if (0 <= m_stream_buffer_data_size)
+                    LOG("error, when avcodec_send_packet().\n");
+                }
+            }      
+        }
+
+        av_free(input_buffer);
+        av_packet_unref(av_packet);
+        av_frame_free(&av_frame);
+        avio_context_free(&av_io_context_input);
+        avformat_free_context(av_format_context_input);
+        sws_freeContext(img_convert_ctx);
+
+        return true;
+    }
+
+    bool h264_decoder::get_yuv420p_frame(unsigned char* pframe, int width, int hight)
+    {
+        return true;
+    }
+
+    bool h264_decoder::get_one_nalu_packet(unsigned char* nalu_packet)
+    {
+        int es_packet_start_point;
+        int es_packet_length;
+
+        int callback_get_data_length;
+
+        unsigned char *tmp_stream_buffer = (unsigned char*)malloc(m_stream_buffer_size);
+        if (tmp_stream_buffer)
+        {
+            memset(tmp_stream_buffer, 0x00, m_stream_buffer_size);
+        }
+
+        do {
+            if (find_next_es_packet(m_stream_buffer_data_header, m_stream_buffer_data_size, &es_packet_start_point, &es_packet_length))
+            {
+                memcpy(tmp_stream_buffer, m_stream_buffer_data_header + es_packet_start_point, es_packet_length);
+                m_stream_buffer_data_header += es_packet_length;
+
+                //use ffmpeg deal h264 nalu, which is store in tmp_stream_buffer, now.
+                if (nalu_packet)
+                {
+                    memcpy(nalu_packet, tmp_stream_buffer, es_packet_length);
+                }
+            }
+            else
+            {
+                if (0 <= m_stream_buffer_data_size)
+                {
+                    //fill m_stream_buffer.
+                    if (0 < m_stream_buffer_data_size)
                     {
-                        //fill m_stream_buffer.
-                        if (0 < m_stream_buffer_data_size)
+                        memcpy(tmp_stream_buffer, m_stream_buffer_data_header, m_stream_buffer_data_size);
+                        memset(m_stream_buffer, 0x00, m_stream_buffer_size);
+
+                        memcpy(m_stream_buffer, tmp_stream_buffer, m_stream_buffer_data_size);
+
+                        //use callback function get data to fill m_stream_buffer.
+                        if (NULL != m_callback_pull_h264_stream)
                         {
-                            memcpy(tmp_stream_buffer, m_stream_buffer_data_header, m_stream_buffer_data_size);
-                            memset(m_stream_buffer, 0x00, m_stream_buffer_size);
+                            callback_get_data_length = m_callback_pull_h264_stream(NULL,
+                                m_stream_buffer + m_stream_buffer_data_size,
+                                m_stream_buffer_size - m_stream_buffer_data_size);
 
-                            memcpy(m_stream_buffer, tmp_stream_buffer, m_stream_buffer_data_size);
-
-                            //use callback function get data to fill m_stream_buffer.
-                            if (NULL != m_callback_pull_h264_stream)
+                            if (0 < callback_get_data_length)
                             {
-                                callback_get_data_length = m_callback_pull_h264_stream(NULL,
-                                    m_stream_buffer + m_stream_buffer_data_size,
-                                    m_stream_buffer_size - m_stream_buffer_data_size);
-
-                                if (0 < callback_get_data_length)
-                                {
-                                    m_stream_buffer_data_size += callback_get_data_length;
-                                }
-
+                                m_stream_buffer_data_size += callback_get_data_length;
                             }
 
-                            m_stream_buffer_data_header = m_stream_buffer;
-                            m_stream_buffer_data_size = m_stream_buffer_size;
-                        }
-                        else
-                        {
-                            memset(m_stream_buffer, 0x00, m_stream_buffer_size);
-                            //use callback function get data to fill m_stream_buffer.
-                            if (NULL != m_callback_pull_h264_stream)
-                            {
-                                callback_get_data_length = m_callback_pull_h264_stream(NULL, m_stream_buffer, m_stream_buffer_size);
-                                if (0 < callback_get_data_length)
-                                {
-                                    m_stream_buffer_data_size += callback_get_data_length;
-                                }
-                            }
                         }
 
                         m_stream_buffer_data_header = m_stream_buffer;
-                    }
-                    else if (m_stream_buffer_size == m_stream_buffer_data_size)
-                    {
-                        LOG("stream buffer in h264 decoder is too small or nalu data is wrong.\n");
-                        nalu_packet = NULL;
-                        return false;
+                        m_stream_buffer_data_size = m_stream_buffer_size;
                     }
                     else
                     {
-                        LOG("error, m_stream_buffer_data_size > m_stream_buffer_size.\n");
-                        nalu_packet = NULL;
-                        return false;
+                        memset(m_stream_buffer, 0x00, m_stream_buffer_size);
+                        //use callback function get data to fill m_stream_buffer.
+                        if (NULL != m_callback_pull_h264_stream)
+                        {
+                            callback_get_data_length = m_callback_pull_h264_stream(NULL, m_stream_buffer, m_stream_buffer_size);
+                            if (0 < callback_get_data_length)
+                            {
+                                m_stream_buffer_data_size += callback_get_data_length;
+                            }
+                        }
                     }
+
+                    m_stream_buffer_data_header = m_stream_buffer;
                 }
-            } while (true);
-
-            if (tmp_stream_buffer)
-            {
-                free(tmp_stream_buffer);
-                tmp_stream_buffer = NULL;
+                else if (m_stream_buffer_size == m_stream_buffer_data_size)
+                {
+                    LOG("stream buffer in h264 decoder is too small or nalu data is wrong.\n");
+                    nalu_packet = NULL;
+                    return false;
+                }
+                else
+                {
+                    LOG("error, m_stream_buffer_data_size > m_stream_buffer_size.\n");
+                    nalu_packet = NULL;
+                    return false;
+                }
             }
-            return true;
-        }
+        } while (true);
 
-
-        void h264_decoder::set_stream_buffer_size(int size)
+        if (tmp_stream_buffer)
         {
-            if (m_stream_buffer)
-            {
-                free(m_stream_buffer);
-                m_stream_buffer = NULL;
-            }
-
-            m_stream_buffer_size = size;
-            m_stream_buffer_data_size = 0;
-            m_stream_buffer = (unsigned char*)malloc(m_stream_buffer_size);
-            memset(m_stream_buffer, 0x00, m_stream_buffer_size);
-            m_stream_buffer_data_header = m_stream_buffer;
+            free(tmp_stream_buffer);
+            tmp_stream_buffer = NULL;
         }
+        return true;
+    }
 
-        int h264_decoder::get_stream_buffer_size()
+
+    void h264_decoder::set_stream_buffer_size(int size)
+    {
+        if (m_stream_buffer)
         {
-            return m_stream_buffer_size;
+            free(m_stream_buffer);
+            m_stream_buffer = NULL;
         }
 
-        void h264_decoder::setup_callback_function(callback_pull_h264_stream_h264_decoder callback_func)
-        {
-            m_callback_pull_h264_stream = callback_func;
-        }
+        m_stream_buffer_size = size;
+        m_stream_buffer_data_size = 0;
+        m_stream_buffer = (unsigned char*)malloc(m_stream_buffer_size);
+        memset(m_stream_buffer, 0x00, m_stream_buffer_size);
+        m_stream_buffer_data_header = m_stream_buffer;
+    }
+
+    int h264_decoder::get_stream_buffer_size()
+    {
+        return m_stream_buffer_size;
+    }
+
+    void h264_decoder::setup_callback_function(callback_pull_h264_stream_h264_decoder callback_func)
+    {
+        m_callback_pull_h264_stream = callback_func;
+    }
 }
 }
