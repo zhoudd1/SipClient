@@ -42,7 +42,7 @@ void init_steam_fifo()
 *   callback function, used for rtpreceiver.
 */
 
-int callback_push_ps_stream(void *opaque, uint8_t *buf, int data_length)
+int callback_push_ps_stream_rtpreceiver(void *opaque, uint8_t *buf, int data_length)
 {
     int write_data_length = 0;
     int read_data_length = 0;
@@ -137,11 +137,11 @@ CVideoDlg::CVideoDlg(CWnd* pParent /*=NULL*/)
     m_stream_buffer = (unsigned char*)malloc(STREAM_BUFFER_SIZE);
     m_stream_buffer_capacity = STREAM_BUFFER_SIZE;
 
-    CRtpReceiver::setup_callback_function(callback_push_ps_stream, NULL, NULL, NULL);
     m_p_rtp_receiver = new CRtpReceiver();
+    m_p_rtp_receiver->setup_callback_function(callback_push_ps_stream_rtpreceiver, NULL, NULL, NULL);
     
-    bsm_demuxer::setup_callback_function(callback_pull_ps_stream_dexuxer, callback_push_es_video_stream, NULL);
     m_pDemux = new bsm_demuxer();
+    m_pDemux->setup_callback_function(callback_pull_ps_stream_dexuxer, callback_push_es_video_stream, NULL);
 
     m_h264_decoder = new h264_decoder();
     m_h264_decoder->setup_callback_function(callback_pull_h264_stream);
@@ -313,7 +313,7 @@ void CVideoDlg::decode_h264_data()
     {
         if (m_h264_decoder)
         {
-            if (m_h264_decoder->get_rgb24_frame(m_stream_buffer, m_stream_buffer_capacity, &m_current_frame_size, 640, 480))
+            if (m_h264_decoder->get_rgb24_frame(m_stream_buffer, m_stream_buffer_capacity, &m_current_frame_size, 1920, 1080))
             {
 
             }
@@ -326,7 +326,7 @@ void CVideoDlg::gdi_render()
     HDC hdc;
     hdc = ::GetDC(m_hWnd);
 
-    int pixel_w = 640, pixel_h = 480;
+    int pixel_w = 1920, pixel_h = 1080;
 
     //BMP Header
     BITMAPINFO bmphdr = { 0 };

@@ -13,7 +13,7 @@ using namespace bsm_utils;
 class stream_manager
 {
 public:
-    stream_manager(int capacity = 1024*1024);
+    stream_manager(int capacity = 1*1024*1024);
     ~stream_manager();
 
     
