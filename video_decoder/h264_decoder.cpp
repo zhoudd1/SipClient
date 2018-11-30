@@ -68,7 +68,8 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
         m_stream_buffer_data_header = m_stream_buffer;
     }
 
-    bool h264_decoder::find_next_hx_str(unsigned char* source, int source_length, unsigned char* seed, int seed_length, int* position)
+    bool h264_decoder::find_next_hx_str(unsigned char* source, 
+        int source_length, unsigned char* seed, int seed_length, int* position)
     {
         if (!source || !seed)
         {
@@ -97,7 +98,8 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
         return false;
     }
 
-    bool h264_decoder::find_next_es_packet(unsigned char* source, int source_length, int* es_packet_start_point, int* es_packet_length)
+    bool h264_decoder::find_next_es_packet(unsigned char* source, int source_length, 
+        int* es_packet_start_point, int* es_packet_length)
     {
         if (!source)
         {
@@ -149,7 +151,8 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
         return true;
     }
 
-    bool h264_decoder::get_rgb24_frame(unsigned char* pframe_buffer, int pframe_buffer_size, int* frame_size, int width, int hight)
+    bool h264_decoder::get_rgb24_frame(unsigned char* pframe_buffer, int pframe_buffer_size, int* frame_size, 
+        int width, int hight)
     {
         AVIOContext *av_io_context_input = NULL;
         AVIOContext *av_io_context_output = NULL;
@@ -180,7 +183,8 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
 
         // input
         av_format_context_input = avformat_alloc_context();
-        av_io_context_input = avio_alloc_context(input_buffer, m_stream_buffer_size, 0, NULL, m_callback_pull_h264_stream, NULL, NULL);
+        av_io_context_input = avio_alloc_context(input_buffer, m_stream_buffer_size, 0, NULL, 
+            m_callback_pull_h264_stream, NULL, NULL);
         if (av_io_context_input == NULL)
         {
             return false;
@@ -273,21 +277,39 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
                         LOG("frame->linesize[0]: %d, frame->width:%d, frame->height:%d",
                             av_frame->linesize[0], av_frame->width, av_frame->height);
 
-                        //Set Value
-                        av_opt_set_int(img_convert_ctx, "sws_flags", SWS_BICUBIC | SWS_PRINT_INFO, 0);
-                        av_opt_set_int(img_convert_ctx, "srcw", av_frame->width, 0);
-                        av_opt_set_int(img_convert_ctx, "srch", av_frame->height, 0);
-                        av_opt_set_int(img_convert_ctx, "src_format", AV_PIX_FMT_YUV420P, 0);
-                        //'0' for MPEG (Y:0-235);'1' for JPEG (Y:0-255)
-                        av_opt_set_int(img_convert_ctx, "src_range", 1, 0);
-                        av_opt_set_int(img_convert_ctx, "dstw", width, 0);
-                        av_opt_set_int(img_convert_ctx, "dsth", hight, 0);
-                        av_opt_set_int(img_convert_ctx, "dst_format", AV_PIX_FMT_RGB24, 0);
-                        av_opt_set_int(img_convert_ctx, "dst_range", 1, 0);
-                        sws_init_context(img_convert_ctx, NULL, NULL);
+                        img_convert_ctx = sws_getContext(av_frame->width, av_frame->height, AV_PIX_FMT_YUVJ420P,
+                            dst_frame->width, dst_frame->height, AV_PIX_FMT_RGB24, SWS_POINT, NULL, NULL, NULL);
 
-                        sws_scale(img_convert_ctx, av_frame->data, av_frame->linesize, 0, dst_frame->height, dst_frame->data, dst_frame->linesize);
-                        convert_size = av_image_copy_to_buffer(pframe_buffer, pframe_buffer_size, dst_frame->data, dst_frame->linesize, AV_PIX_FMT_RGB24, dst_frame->width, dst_frame->height, 1);
+                        if(img_convert_ctx)
+                        { 
+                            int a; 
+                            a = sws_scale(img_convert_ctx,
+                                av_frame->data,
+                                av_frame->linesize,
+                                0,
+                                av_frame->height,
+                                dst_frame->data,
+                                dst_frame->linesize);
+                            if (a>0)
+                            {
+                                LOG("pixel convert success.\n");
+                            }
+                            else
+                            {
+                                LOG("pixel convert failure.\n");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            LOG("get SwsContext failure.\n");
+                            return false;
+                        }
+                        //AVPixelFormat;
+
+                        convert_size = av_image_copy_to_buffer(pframe_buffer, pframe_buffer_size, 
+                            dst_frame->data, dst_frame->linesize, AV_PIX_FMT_RGB24, 
+                            dst_frame->width, dst_frame->height, 1);
                             
                         if (0 < convert_size)
                         {

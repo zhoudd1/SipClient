@@ -40,15 +40,15 @@
             // axSipClient1
             // 
             this.axSipClient1.Enabled = true;
-            this.axSipClient1.Location = new System.Drawing.Point(1, 1);
+            this.axSipClient1.Location = new System.Drawing.Point(0, 0);
             this.axSipClient1.Name = "axSipClient1";
             this.axSipClient1.OcxState = ((System.Windows.Forms.AxHost.State)(resources.GetObject("axSipClient1.OcxState")));
-            this.axSipClient1.Size = new System.Drawing.Size(425, 291);
+            this.axSipClient1.Size = new System.Drawing.Size(640, 480);
             this.axSipClient1.TabIndex = 0;
             // 
             // BTN_INIT
             // 
-            this.BTN_INIT.Location = new System.Drawing.Point(456, 221);
+            this.BTN_INIT.Location = new System.Drawing.Point(671, 352);
             this.BTN_INIT.Name = "BTN_INIT";
             this.BTN_INIT.Size = new System.Drawing.Size(91, 32);
             this.BTN_INIT.TabIndex = 1;
@@ -58,7 +58,7 @@
             // 
             // BTN_REGISTER
             // 
-            this.BTN_REGISTER.Location = new System.Drawing.Point(581, 221);
+            this.BTN_REGISTER.Location = new System.Drawing.Point(796, 352);
             this.BTN_REGISTER.Name = "BTN_REGISTER";
             this.BTN_REGISTER.Size = new System.Drawing.Size(90, 32);
             this.BTN_REGISTER.TabIndex = 2;
@@ -68,7 +68,7 @@
             // 
             // BTN_PLAY
             // 
-            this.BTN_PLAY.Location = new System.Drawing.Point(456, 270);
+            this.BTN_PLAY.Location = new System.Drawing.Point(671, 417);
             this.BTN_PLAY.Name = "BTN_PLAY";
             this.BTN_PLAY.Size = new System.Drawing.Size(91, 34);
             this.BTN_PLAY.TabIndex = 3;
@@ -78,7 +78,7 @@
             // 
             // BTN_STOP_PLAY
             // 
-            this.BTN_STOP_PLAY.Location = new System.Drawing.Point(581, 270);
+            this.BTN_STOP_PLAY.Location = new System.Drawing.Point(796, 417);
             this.BTN_STOP_PLAY.Name = "BTN_STOP_PLAY";
             this.BTN_STOP_PLAY.Size = new System.Drawing.Size(90, 34);
             this.BTN_STOP_PLAY.TabIndex = 4;
@@ -90,7 +90,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(710, 399);
+            this.ClientSize = new System.Drawing.Size(910, 481);
             this.Controls.Add(this.BTN_STOP_PLAY);
             this.Controls.Add(this.BTN_PLAY);
             this.Controls.Add(this.BTN_REGISTER);

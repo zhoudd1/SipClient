@@ -313,7 +313,7 @@ void CVideoDlg::decode_h264_data()
     {
         if (m_h264_decoder)
         {
-            if (m_h264_decoder->get_rgb24_frame(m_stream_buffer, m_stream_buffer_capacity, &m_current_frame_size, 1920, 1080))
+            if (m_h264_decoder->get_rgb24_frame(m_stream_buffer, m_stream_buffer_capacity, &m_current_frame_size, m_video_dialog_width, m_video_dialog_height))
             {
 
             }
@@ -326,7 +326,7 @@ void CVideoDlg::gdi_render()
     HDC hdc;
     hdc = ::GetDC(m_hWnd);
 
-    int pixel_w = 1920, pixel_h = 1080;
+    int pixel_w = m_video_dialog_width, pixel_h = m_video_dialog_height;
 
     //BMP Header
     BITMAPINFO bmphdr = { 0 };
@@ -349,7 +349,7 @@ void CVideoDlg::gdi_render()
     //Draw data
     int nResult = StretchDIBits(hdc,
         0, 0,
-        m_video_dialog_width, m_video_dialog_height,
+        pixel_w, pixel_h,
         0, 0,
         pixel_w, pixel_h,
         m_stream_buffer,
