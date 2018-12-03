@@ -11,7 +11,6 @@
 *   global variable
 *   全局变量
 */
-HWND g_hCtlWnd;
 char g_ClientIp[20] = { 0 }; //sip UA IP
 char g_ClientId[25] = { 0 }; //sip UA Id
 
@@ -23,7 +22,8 @@ class CSipClientCtrl : public COleControl
 public:
 	CSipClientCtrl();
 private:
-    CVideoDlg* m_pVideoDlg; //视频显示窗口
+    CVideoDlg* m_pVideoDlg; //video windows
+    HWND m_hCtlWnd;         //video windows handle
     CSipUA* m_pSipUA;
 
 // Overrides

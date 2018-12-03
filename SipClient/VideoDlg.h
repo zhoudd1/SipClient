@@ -48,6 +48,8 @@ private:
 
 
 public:
+    void set_windows_size(int width, int height);
+
     static void PlayThreadProc(void* pParam);   //thread function
     HANDLE m_playThreadHandle;                  //thread handle
     bool m_bplayThreadRuning;                   //thread running state

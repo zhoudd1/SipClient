@@ -123,7 +123,7 @@ void CSipClientCtrl::OnDraw(
 		return;
 
 	// TODO: Replace the following code with your own drawing code.
-    g_hCtlWnd = this->GetSafeHwnd();
+    m_hCtlWnd = this->GetSafeHwnd();
 
     if (m_pVideoDlg == NULL)
     {

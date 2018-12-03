@@ -324,7 +324,7 @@ bool bsm_demuxer::demux_ps_to_es_network()
 
         if (videoindex == av_packet.stream_index)
         {
-            LOG("Write Video Packet. size: %d\t pts: %d\n", av_packet.size, av_packet.pts);
+            //LOG("Write Video Packet. size: %d\t pts: %d\n", av_packet.size, av_packet.pts);
         }
         else
         {
@@ -338,7 +338,7 @@ bool bsm_demuxer::demux_ps_to_es_network()
             break;
         }
 
-        LOG("Write %8d frames to output file.", frame_index);
+        //LOG("Write %8d frames to output file.", frame_index);
 
         av_packet_unref(&av_packet);
 

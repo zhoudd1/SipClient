@@ -273,9 +273,9 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
                 {
                     if (0 == avcodec_receive_frame(av_codec_context, av_frame))
                     {
-                        LOG("success, get a frame.\n");
-                        LOG("frame->linesize[0]: %d, frame->width:%d, frame->height:%d",
-                            av_frame->linesize[0], av_frame->width, av_frame->height);
+                        //LOG("success, get a frame.\n");
+                        //LOG("frame->linesize[0]: %d, frame->width:%d, frame->height:%d",
+                        //    av_frame->linesize[0], av_frame->width, av_frame->height);
 
                         img_convert_ctx = sws_getContext(av_frame->width, av_frame->height, AV_PIX_FMT_YUVJ420P,
                             dst_frame->width, dst_frame->height, AV_PIX_FMT_RGB24, SWS_POINT, NULL, NULL, NULL);
@@ -292,11 +292,11 @@ void h264_decoder::write_media_data_to_file(char* file_name, void* pLog, int nLe
                                 dst_frame->linesize);
                             if (a>0)
                             {
-                                LOG("pixel convert success.\n");
+                                //LOG("pixel convert success.\n");
                             }
                             else
                             {
-                                LOG("pixel convert failure.\n");
+                                //LOG("pixel convert failure.\n");
                                 continue;
                             }
                         }

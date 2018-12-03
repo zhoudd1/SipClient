@@ -70,7 +70,7 @@ int callback_pull_ps_stream_dexuxer(void *opaque, uint8_t *buf, int buf_size)
         recv_date_length = g_ps_stream_fifo->pull_data(NULL, buf, buf_size);
         //LOG("src stream_manager don't have enought data, callback will waite a moment.\n");
     }
-    LOG("receive data success, receive size = %d.\n", recv_date_length);
+    //LOG("receive data success, receive size = %d.\n", recv_date_length);
 
     return recv_date_length;
 }
@@ -121,9 +121,29 @@ int callback_pull_h264_stream(void *opaque, unsigned char *buf, int buf_size)
         recv_date_length = g_h264_es_stream_fifo->pull_data(NULL, buf, buf_size);
         //LOG("src stream_manager don't have enought data, callback will waite a moment.\n");
     }
-    LOG("receive data success, receive size = %d.\n", recv_date_length);
+    //LOG("receive data success, receive size = %d.\n", recv_date_length);
 
     return recv_date_length;
+}
+
+
+void write_media_data_to_file(char* file_name, void* pLog, int nLen)
+{
+    FILE* m_pLogFile = NULL;
+    if (pLog != NULL && nLen > 0)
+    {
+        if (NULL == m_pLogFile && strlen(file_name) > 0)
+        {
+            ::fopen_s(&m_pLogFile, file_name, "ab+");
+        }
+
+        if (m_pLogFile != NULL)
+        {
+            ::fwrite(pLog, nLen, 1, m_pLogFile);
+            ::fclose(m_pLogFile);
+            m_pLogFile = NULL;
+        }
+    }
 }
 
 // CVideoDlg dialog
@@ -174,23 +194,22 @@ END_MESSAGE_MAP()
 
 // CVideoDlg message handlers
 
-void write_media_data_to_file(char* file_name, void* pLog, int nLen)
+void CVideoDlg::set_windows_size(int width, int height)
 {
-    FILE* m_pLogFile = NULL;
-    if (pLog != NULL && nLen > 0)
-    {
-        if (NULL == m_pLogFile && strlen(file_name) > 0)
-        {
-            ::fopen_s(&m_pLogFile, file_name, "ab+");
-        }
+    RECT old_rect;
+    GetWindowRect(&old_rect);
 
-        if (m_pLogFile != NULL)
-        {
-            ::fwrite(pLog, nLen, 1, m_pLogFile);
-            ::fclose(m_pLogFile);
-            m_pLogFile = NULL;
-        }
-    }
+    m_video_dialog_width = width;
+    m_video_dialog_height = height;
+
+    RECT new_rect;
+    new_rect.top = 0;
+    new_rect.left = 0;
+    new_rect.right = new_rect.left + m_video_dialog_width;
+    new_rect.bottom = new_rect.top + m_video_dialog_height;
+    
+
+    MoveWindow(&new_rect);
 }
 
 void CVideoDlg::PlayThreadProc(void* pParam)
@@ -222,10 +241,7 @@ void CVideoDlg::h264_decode_proc(void* pParam)
 
 bool CVideoDlg::StartPlay()
 {
-    RECT rect;
-    GetWindowRect(&rect);
-    m_video_dialog_width = rect.right - rect.left;
-    m_video_dialog_height = rect.bottom - rect.top;
+    set_windows_size(640, 480);
 
     m_p_rtp_receiver->set_cleint_ip("192.168.2.102");
     m_p_rtp_receiver->start_proc();
@@ -256,19 +272,26 @@ bool CVideoDlg::StartPlay()
         LOG("h264 decode thread start success.\n");
     }
 
+    m_bplayThreadRuning = true;
     m_playThreadHandle = (HANDLE)_beginthread(PlayThreadProc, 0, (void*)this);
     if (0 == m_playThreadHandle)
     {
-        //Ïß³ÌÆô¶¯Ê§°Ü
+        LOG("render thread start failure.\n");
         return false;
     }
-    m_bplayThreadRuning = true;
+    else
+    {
+        LOG("render thread start success.\n");
+    }
+
     return true;
 }
 
 
 bool CVideoDlg::StopPlay()
 {
+    m_bps_packet_demuxer_thread_runing = false;
+    m_h264_decoder_thread_runing = false;
     m_bplayThreadRuning = false;
     return false;
 }
@@ -292,7 +315,10 @@ int CVideoDlg::Play()
     while (m_bplayThreadRuning)
     {
         gdi_render();
+        //Sleep(40);
     }
+
+    LOG("render thread stop.\n");
     return 0;
 }
 
@@ -305,6 +331,7 @@ void CVideoDlg::demux_ps_packet()
             m_pDemux->demux_ps_to_es_network();
         }
     }
+    LOG("ps packet demuxer thread stop.\n");
 }
 
 void CVideoDlg::decode_h264_data()
@@ -319,12 +346,13 @@ void CVideoDlg::decode_h264_data()
             }
         }
     }
+    LOG("h264 decode thread stop.\n");
 }
 
 void CVideoDlg::gdi_render()
 {
     HDC hdc;
-    hdc = ::GetDC(m_hWnd);
+    hdc = ::GetDC(this->GetSafeHwnd());
 
     int pixel_w = m_video_dialog_width, pixel_h = m_video_dialog_height;
 
